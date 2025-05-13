@@ -1,0 +1,9 @@
+.idea
+.venv/
+.env
+__pycache__/
+state.json
+spotify_state.json
+test*
+*.txt
+sources/**
