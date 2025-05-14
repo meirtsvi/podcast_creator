@@ -184,7 +184,7 @@ def main():
                 remaining_titles.append(title)
         print(f"Found {len(remaining_urls)} remaining URLs to process")
         
-        # Process remaining URLs in batches of 10
+        # Process unprocessed URLs in batches of 10
         url_batches = [remaining_urls[i:i + 10] for i in range(0, len(remaining_urls), 10)]
         title_batches = [remaining_titles[i:i + 10] for i in range(0, len(remaining_titles), 10)]
         login_state_path = p(__file__).parent / "state.json"
