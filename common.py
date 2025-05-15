@@ -15,9 +15,14 @@ load_dotenv()
 
 # Constants
 URLS_TO_MONITOR_PATH = p(__file__).parent / "urls_to_monitor.txt"
-PROMPT_FOR_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_podcast_episode_name.txt"
-PROMPT_FOR_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_podcast_episode_desc.txt"
-PROMPT_FOR_PODCAST_GENERATION = "prompt_for_podcast_generation.txt"
+MULTI_URLS_LINKS_FILENAME = "sources/website_multi_links.csv"
+SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
+PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
+PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_single_url_podcast_episode_name.txt"
+PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_multi_urls_podcast_episode_desc.txt"
+PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_single_url_podcast_episode_desc.txt"
+PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION = "prompt_for_multi_urls_podcast_generation.txt"
+PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION = "prompt_for_single_url_podcast_generation.txt"
 EPISODE_NAME_FILENAME = "episode_name.txt"
 EPISODE_DESC_FILENAME = "episode_desc.txt"
 OUTPUT_DIR = os.getenv("OUTPUT_DIR")
@@ -31,13 +36,15 @@ def call_genai_api(prompt):
     return ret
 
 def create_notebook_name(titles):
-    with open(PROMPT_FOR_PODCAST_EPISODE_NAME_FILENAME, "r", encoding="utf-8") as f:
+    prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME if len(titles) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_NAME_FILENAME
+    with open(prompt_filename, "r", encoding="utf-8") as f:
         prompt = f.read()
     prompt = prompt + "\n".join(titles)
     return call_genai_api(prompt)
 
 def create_podcast_description(urls, titles):
-    with open(PROMPT_FOR_PODCAST_EPISODE_DESC_FILENAME, "r", encoding="utf-8") as f:
+    prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME if len(urls) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME
+    with open(prompt_filename, "r", encoding="utf-8") as f:
         prompt = f.read()
     url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
     prompt = prompt + "\n".join(url_title_pairs)
@@ -242,7 +249,17 @@ def upload_new_podcast_episode(browser, episode_folder, episode_full_path, episo
 
 def generate_title_from_url(url):
     try:
-        response = requests.get(url, verify=False, allow_redirects=True, timeout=30)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.202 Safari/537.36'
+        }
+        if "themarker.com" in url:
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25',
+                'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Referer': 'https://www.google.com/'
+            }
+        response = requests.get(url, verify=False, allow_redirects=True, timeout=30, headers=headers)
         final_url = response.url
         print(f"Original URL: {url}")
         print(f"Final URL after redirects: {final_url}")
@@ -259,5 +276,5 @@ def generate_title_from_url(url):
     except Exception as e:
         print(f"Error extracting title from {url}: {str(e)}")
         return False, "", ""
-    prompt = f"Generate a concise, informative title for this article URL: {final_url if 'final_url' in locals() else url}"
+    prompt = f"Generate a concise, informative title for this article URL. Don't print 'here is consise...', just give the title: {final_url if 'final_url' in locals() else url}"
     return True, call_genai_api(prompt), url

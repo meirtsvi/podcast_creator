@@ -10,15 +10,15 @@ from common import (
     add_source_links_to_notebook, remove_url_from_monitor, add_url_to_monitor,
     create_notebook_name, create_podcast_description,
     URLS_TO_MONITOR_PATH, create_episode_folder, get_processed_urls, get_next_episode_number,
-    upload_new_podcast_episode, OUTPUT_DIR, PROMPT_FOR_PODCAST_GENERATION, generate_title_from_url
+    upload_new_podcast_episode, OUTPUT_DIR, generate_title_from_url,
+    PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION, MULTI_URLS_LINKS_FILENAME,
+    SINGLE_URL_LINKS_FILENAME, PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION
 )
 from mp3 import add_pre_and_post_audio
 
-# Set environment variable to ignore SSL
-os.environ["PYTHONHTTPSVERIFY"] = "0"
-
-def set_podcast_params_and_run(page):
-        with open(PROMPT_FOR_PODCAST_GENERATION, "r", encoding="utf-8") as f:
+def set_podcast_params_and_run(page, is_single_url=False):
+        prompt_filename = PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION if is_single_url else PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION
+        with open(prompt_filename, "r", encoding="utf-8") as f:
             prompt = f.read()
         print("Setting podcast params and running.\n")
         page.get_by_role("button").filter(has_text="tune").click()
@@ -146,23 +146,18 @@ def process_batch(batch_number, urls, browser, login_state_path, episode_number,
     page.wait_for_load_state()
 
     create_notebook_from_sources(page, urls, notebook_name)
-    set_podcast_params_and_run(page)
+    set_podcast_params_and_run(page, is_single_url=len(urls) == 1)
     add_url_to_monitor(page, episode_folder)
     context.close()
     
     print(f"Completed processing batch {batch_number}")
 
-def main():
-    try:
-        # Get processed URLs and next episode number
-        processed_urls = get_processed_urls()
+def process_links(links_filename, batch_size, processed_urls):
         next_episode_number = get_next_episode_number()
-        print(f"Found {len(processed_urls)} processed URLs")
         
-        # Get all URLs from website_links.csv
         all_urls = []
         all_titles = []
-        with open("sources/website_links.csv", "r", encoding="utf-8") as f:
+        with open(links_filename, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     parts = line.strip().split(',', 1)
@@ -184,28 +179,35 @@ def main():
                 remaining_titles.append(title)
         print(f"Found {len(remaining_urls)} remaining URLs to process")
         
-        # Process unprocessed URLs in batches of 10
-        url_batches = [remaining_urls[i:i + 10] for i in range(0, len(remaining_urls), 10)]
-        title_batches = [remaining_titles[i:i + 10] for i in range(0, len(remaining_titles), 10)]
+        # Process unprocessed URLs in batches of <batch_size>
+        url_batches = [remaining_urls[i:i + batch_size] for i in range(0, len(remaining_urls), batch_size)]
+        title_batches = [remaining_titles[i:i + batch_size] for i in range(0, len(remaining_titles), batch_size)]
         login_state_path = p(__file__).parent / "state.json"
         
         with sync_playwright() as sp:
             browser = sp.chromium.launch(headless=True, channel="chrome")
             for batch_number, (urls, titles) in enumerate(zip(url_batches, title_batches), 1):
                 process_batch(batch_number, urls, browser, login_state_path, next_episode_number + batch_number - 1, titles)
-                # Small delay between batches
-                time.sleep(5)
             
             # After all notebooks are created, start monitoring them
             print("Starting to monitor notebooks for completion...")
             while monitor_notebooks(browser, login_state_path):
                 time.sleep(10)
             browser.close()
-            
+
+def main():
+    try:
+        processed_urls = get_processed_urls()
+        print(f"Found {len(processed_urls)} processed URLs")
+
+        process_links(SINGLE_URL_LINKS_FILENAME, 1, processed_urls)
+        process_links(MULTI_URLS_LINKS_FILENAME, 10, processed_urls)
+
     except ValueError as e:
         print(e)
         traceback.print_exc()
         sys.exit()
 
 if __name__ == "__main__":
+    os.environ["PYTHONHTTPSVERIFY"] = "0"
     main()
