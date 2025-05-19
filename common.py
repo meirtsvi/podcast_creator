@@ -150,8 +150,8 @@ def get_processed_urls():
 
 def get_next_episode_number():
     """Get the next episode number based on existing episode folders."""
-    episode_folders = glob.glob(str(p(OUTPUT_DIR) / "Episode_*"))
-    
+    podcast_dir = p(OUTPUT_DIR)
+    episode_folders = glob.glob(str(podcast_dir / "Episode_*"))
     if not episode_folders:
         return 1
     
@@ -235,6 +235,7 @@ def upload_new_podcast_episode(browser, episode_folder, episode_full_path, episo
     page.get_by_placeholder("Give your episode a name").fill(episode_name)
     page.get_by_label("Episode info").get_by_role("paragraph").click()
     page.get_by_role("textbox").nth(1).fill(episode_desc)
+    page.locator("label").filter(has_text="HTML").locator("span").first.click()
     page.locator("#season-number").click()
     page.locator("#season-number").fill("1")
     page.locator("#episode-number").click()

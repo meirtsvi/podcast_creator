@@ -62,7 +62,7 @@ def monitor_notebooks(browser, login_state_path):
             
             try:
                 audio_button = page.get_by_role("button", name="Load the audio overview")
-                audio_button.wait_for(state="visible", timeout=15000)
+                audio_button.wait_for(state="visible", timeout=25000)
                 audio_button.click()
             except Exception as e:
                 print(f"Audio button not found or not visible after 15 seconds for {url}: {str(e)}")
@@ -72,7 +72,7 @@ def monitor_notebooks(browser, login_state_path):
             try:
                 # Wait for the options button to appear
                 options_button = page.get_by_role("button", name="See more options for audio")
-                options_button.wait_for(state="visible", timeout=15000)
+                options_button.wait_for(state="visible", timeout=20000)
                 options_button.click()
                 print("Options button clicked!")
                 
@@ -133,6 +133,7 @@ def process_batch(batch_number, urls, browser, login_state_path, episode_number,
     print(f'Notebook name: {notebook_name}')
 
     podcast_description = create_podcast_description(urls, titles)
+    podcast_description = podcast_description.replace("```html", "").replace("```", "")
     print(f'Podcast description: {podcast_description}')
 
     # Create episode folder and write URLs, name and description

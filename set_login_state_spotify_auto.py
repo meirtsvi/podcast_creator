@@ -1,21 +1,36 @@
-import time
 from playwright.sync_api import sync_playwright
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(
-        headless=True,
-        channel="chrome",
-        args=["--disable-blink-features=AutomationControlled"],
-    )
-    context = browser.new_context(storage_state=str("spotify_state.json"))
-    page = context.new_page()
+def refresh_google_session(state_path="spotify_state.json", url="https://podcasters.spotify.com/login/"):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+			channel="chrome",
+			headless=True,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
 
-    page.goto("https://creators.spotify.com/pod/dashboard/home")
-    page.get_by_label("Episodes").click()
-    time.sleep(5)
+        context = browser.new_context(
+            storage_state=state_path,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            viewport={"width": 1366, "height": 768},
+            locale="en-US",
+            timezone_id="America/New_York"
+        )
 
-    storage = context.storage_state(path="spotify_state.json")
+        page = context.new_page()
+        page.goto(url)
+        page.wait_for_load_state("domcontentloaded")  # faster and more stable
+        page.wait_for_timeout(5000)  # let things settle
 
-    print("Login state saved!")
+        if "accounts.google.com" in page.url:
+            print("!! Session expired. Run save_google_state.py again.")
+        else:
+            print(">> Session refreshed successfully.")
+            page.wait_for_timeout(5000)  # simulate activity
+            context.storage_state(path=state_path)
+            print(f">> Session state updated in {state_path}")
 
-    browser.close()
+        browser.close()
+
+# Run it
+if __name__ == "__main__":
+    refresh_google_session()

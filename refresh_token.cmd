@@ -1,3 +1,3 @@
-cd c:\src\notebooklm_source_automation\
-python c:\src\notebooklm_source_automation\set_login_state_spotify_auto.py 
-python c:\src\notebooklm_source_automation\set_login_state_auto.py 
+cd c:\src\podcast_creator\
+python c:\src\podcast_creator\set_login_state_spotify_auto.py 
+python c:\src\podcast_creator\set_login_state_auto.py 
