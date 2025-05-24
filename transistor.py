@@ -1,0 +1,67 @@
+import os
+import requests
+import dotenv
+
+dotenv.load_dotenv()
+
+TRANSISTOR_API_KEY = os.getenv("TRANSISTOR_API_KEY")
+#SHOW_ID = "64687" # English version
+SHOW_ID = "64672" # Hebrew version
+
+def authorize_audio_upload(audio_file_path):
+    audio_filename = os.path.basename(audio_file_path)
+    url = "https://api.transistor.fm/v1/episodes/authorize_upload"
+    headers = {'x-api-key': TRANSISTOR_API_KEY, 'accept': 'application/json'}
+    params = {'filename': audio_file_path}
+    response = requests.get(url, headers=headers, params=params, verify=False)
+    response.raise_for_status()
+    result = response.json()
+    upload_url = result["data"]["attributes"]["upload_url"]
+    audio_url = result["data"]["attributes"]["audio_url"]
+    content_type = result["data"]["attributes"]["content_type"]
+    print("Presigned upload URL:", upload_url)
+    print("Resulting audio URL (for episode):", audio_url)
+    print("Content-Type:", content_type)
+    return upload_url, audio_url, content_type
+
+def upload_audio_file(upload_url, audio_file_path, content_type):
+    print("Uploading audio file to presigned URL...")
+    with open(audio_file_path, 'rb') as f:
+        audio_data = f.read()
+    headers = {"Content-Type": content_type}
+    response = requests.put(upload_url, data=audio_data, headers=headers, verify=False)
+    print("Upload status:", response.status_code)
+    print("Upload response:", response.text)
+    response.raise_for_status()
+    print("Audio uploaded successfully.")
+
+def create_episode_with_audio(season, episode, title, description, audio_url):
+    url = "https://api.transistor.fm/v1/episodes"
+    headers = {'x-api-key': TRANSISTOR_API_KEY, 'accept': 'application/json'}
+    data = {
+        'episode[show_id]': SHOW_ID,
+        'episode[title]': title,
+        'episode[season]': season,
+        'episode[number]': episode,
+        'episode[type]': "full",
+        'episode[explicit]': "false",
+        'episode[description]': description,
+        'episode[audio_url]': audio_url,
+    }
+    response = requests.post(url, headers=headers, data=data, verify=False)
+    print("Episode creation status:", response.status_code)
+    print("Episode creation response:", response.text)
+    response.raise_for_status()
+    episode = response.json()
+    print("Episode created with ID:", episode["data"]["id"])
+    return episode
+
+def upload_episode_to_transistor(season, episode, title, description, audio_file_path):
+    upload_url, audio_url, content_type = authorize_audio_upload(audio_file_path)
+    upload_audio_file(upload_url, audio_file_path, content_type)
+    create_episode_with_audio(season, episode, title, description, audio_url)
+
+if __name__ == "__main__":
+    AUDIO_FILE_PATH = r"c:\Users\meir\Dropbox\tech_podcast\Episode_47\episode_47_ai_biometrics_windows_check_point_hiring_apple_designing_google_scanning_future_is_here.mp3.wav"
+    audio_file_path = os.path.basename(AUDIO_FILE_PATH)
+    upload_episode_to_transistor("1", "47", "Test Title", "Test Desc", audio_file_path)

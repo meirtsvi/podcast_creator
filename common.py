@@ -1,20 +1,19 @@
 from pathlib import Path as p
 import re
 import glob
-from time import sleep
 import os
 from dotenv import load_dotenv
 import requests
 
-from playwright.sync_api import expect
 from google import genai
 from bs4 import BeautifulSoup
+
+from transistor import upload_episode_to_transistor
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Constants
-URLS_TO_MONITOR_PATH = p(__file__).parent / "urls_to_monitor.txt"
 MULTI_URLS_LINKS_FILENAME = "sources/website_multi_links.csv"
 SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
 PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
@@ -25,6 +24,7 @@ PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION = "prompt_for_multi_urls_podcast_genera
 PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION = "prompt_for_single_url_podcast_generation.txt"
 EPISODE_NAME_FILENAME = "episode_name.txt"
 EPISODE_DESC_FILENAME = "episode_desc.txt"
+EPISODE_URLS_FILENAME = "urls.txt"
 OUTPUT_DIR = os.getenv("OUTPUT_DIR")
 
 def call_genai_api(prompt):
@@ -35,14 +35,14 @@ def call_genai_api(prompt):
     ret = response.text.strip()
     return ret
 
-def create_notebook_name(titles):
+def create_episode_name(titles, episode_number):
     prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME if len(titles) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_NAME_FILENAME
     with open(prompt_filename, "r", encoding="utf-8") as f:
         prompt = f.read()
     prompt = prompt + "\n".join(titles)
-    return call_genai_api(prompt)
+    return "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
 
-def create_podcast_description(urls, titles):
+def create_episode_description(urls, titles):
     prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME if len(urls) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME
     with open(prompt_filename, "r", encoding="utf-8") as f:
         prompt = f.read()
@@ -81,56 +81,6 @@ def create_source_list(source_type, batch_size=10) -> list:
 
         print(f"Found {len(urls)} batches of URLs to process.\n")
         return urls
-
-def add_source_links_to_notebook(source_type: str, urls: list, page) -> None:
-    url_count = len(urls)
-    is_first = 0
-    is_last = url_count - 1
-
-    print(f"Attempting to add {url_count} sources from provided {source_type}_links.csv file...")
-
-    page.goto("https://notebooklm.google.com/")
-
-    for i, u in enumerate(urls):
-        if i == is_first:
-            new_notebook_button = page.get_by_role("button", name="Create new notebook")
-            new_notebook_button.wait_for(state="attached")
-            new_notebook_button.click()
-
-        link_button = page.locator(
-            "span.mdc-evolution-chip__text-label", has_text=re.compile(f"{source_type}",re.I)
-        )
-        link_button.wait_for(state="attached")
-        link_button.click()
-
-        link_url_input = page.locator("[formcontrolname='newUrl']")
-        link_url_input.wait_for(state="attached")
-        link_url_input.fill(u)
-
-        insert_button = page.get_by_role("button", name="Insert")
-        expect(insert_button).to_be_enabled()
-        insert_button.click()
-
-        source_container = page.locator("div.single-source-container").last
-        source_container.wait_for(state="attached")
-
-        loading_spinner = source_container.locator(".mat-mdc-progress-spinner")
-        loading_spinner.wait_for(state="detached")
-
-        checkbox = source_container.locator(
-            "input.mdc-checkbox__native-control.mdc-checkbox--selected"
-        )
-        checkbox.wait_for(state="attached")
-        expect(checkbox).not_to_have_attribute("ariaLabel", u)
-
-        page.wait_for_timeout(1200)
-
-        if i < is_last:
-            add_source_button = page.get_by_role("button", name="Add source")
-            add_source_button.wait_for(state="attached")
-            add_source_button.click()
-
-        print(f"Source {i+1}/{url_count} ({u}) added.")
 
 def get_processed_urls():
     """Read all URLs from episode folders' urls.txt files."""
@@ -172,13 +122,9 @@ def create_episode_folder(episode_number, urls, notebook_name, podcast_descripti
     
     # Create episode directory if it doesn't exist
     episode_dir.mkdir(exist_ok=True)
-    
-    # Write URLs to urls.txt
-    urls_file = episode_dir / "urls.txt"
-    with open(urls_file, 'w') as f:
-        for url in urls:
-            f.write(f"{url}\n")
-    
+
+    previous_summaries_file_path = create_previous_episodes_summaries(episode_dir)
+
     # Write podcast episode name to a file
     name_file = episode_dir / EPISODE_NAME_FILENAME
     with open(name_file, 'w', encoding="utf-8") as f:
@@ -190,27 +136,9 @@ def create_episode_folder(episode_number, urls, notebook_name, podcast_descripti
         f.write(podcast_description)
     
     print(f"Created episode folder {episode_dir} with {len(urls)} URLs")
+    return previous_summaries_file_path, episode_dir
 
-def add_url_to_monitor(page, episode_folder):
-    """Write notebook URL and episode folder name to monitoring file."""
-    with open(URLS_TO_MONITOR_PATH, "a") as f:
-        f.write(f"{page.url}|{episode_folder}\n")
-    
-    print(f"The URL {page.url} has been added to the monitoring file for {episode_folder}")
-
-def remove_url_from_monitor(url):
-    """Remove a processed URL from the monitoring list."""
-    with open(URLS_TO_MONITOR_PATH, "r") as f:
-        lines = [line.strip() for line in f if line.strip()]
-    
-    # Find and remove the line containing the URL
-    updated_lines = [line for line in lines if not line.startswith(url + "|")]
-    
-    with open(URLS_TO_MONITOR_PATH, "w") as f:
-        f.write("\n".join(updated_lines) + "\n")
-    print(f"Removed {url} from monitoring list")
-
-def upload_new_podcast_episode(browser, episode_folder, episode_full_path, episode_audio_file_path):
+def upload_new_podcast_episode(episode_folder, episode_full_path, episode_audio_file_path):
     print(f"Uploading new podcast episode from {episode_full_path}...")
     match = re.search(r"Episode_(\d+)", episode_folder)
     if not match:
@@ -224,42 +152,14 @@ def upload_new_podcast_episode(browser, episode_folder, episode_full_path, episo
     with open(desc_file, 'r', encoding="utf-8") as f:
         episode_desc = f.read()
 
-    login_state_path = "spotify_state.json"
-    context = browser.new_context(storage_state=str(login_state_path))
-    page = context.new_page()
-    page.goto("https://creators.spotify.com/pod/dashboard/home")
-    page.wait_for_load_state()
-    page.get_by_role("link", name="Create a new episode").click()
-    page.locator('input[type="file"]').set_input_files(episode_audio_file_path)
-    page.get_by_placeholder("Give your episode a name").click()
-    page.get_by_placeholder("Give your episode a name").fill(episode_name)
-    page.get_by_label("Episode info").get_by_role("paragraph").click()
-    page.get_by_role("textbox").nth(1).fill(episode_desc)
-    page.locator("label").filter(has_text="HTML").locator("span").first.click()
-    page.locator("#season-number").click()
-    page.locator("#season-number").fill("1")
-    page.locator("#episode-number").click()
-    page.locator("#episode-number").fill(episode_number)
-    page.get_by_label("Cookie banner").get_by_label("Close").click()
-    page.get_by_role("button", name="Next").click()
-    page.locator("label").filter(has_text="Now").locator("span").first.click()
-    page.get_by_role("button", name="Publish").click()
-    sleep(10)
-    context.close()
-    print(f"Uploaded new podcast episode {episode_name} to Spotify.")
+    upload_episode_to_transistor("1", episode_number, episode_name, episode_desc, episode_audio_file_path)
+    print(f"Uploaded new podcast episode {episode_name} to Transisotr.")
 
 def generate_title_from_url(url):
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.202 Safari/537.36'
         }
-        if "themarker.com" in url:
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25',
-                'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Referer': 'https://www.google.com/'
-            }
         response = requests.get(url, verify=False, allow_redirects=True, timeout=30, headers=headers)
         final_url = response.url
         print(f"Original URL: {url}")
@@ -279,3 +179,33 @@ def generate_title_from_url(url):
         return False, "", ""
     prompt = f"Generate a concise, informative title for this article URL. Don't print 'here is consise...', just give the title: {final_url if 'final_url' in locals() else url}"
     return True, call_genai_api(prompt), url
+
+def create_previous_episodes_summaries(episode_folder):
+
+    def read_file_with_fallback(path):
+        encodings = ['utf-8', 'cp1255', 'iso-8859-1']
+        for enc in encodings:
+            try:
+                with open(path, "r", encoding=enc) as f:
+                    return f.read().strip()
+            except UnicodeDecodeError:
+                continue
+        # If all encodings fail, read as binary and replace errors
+        with open(path, "rb") as f:
+            return f.read().decode('utf-8', errors='replace').strip()
+
+    root_folder = p(OUTPUT_DIR)
+    output_file = os.path.join(episode_folder, "summaries.txt")
+
+    with open(output_file, "w", encoding="utf-8") as out_f:
+        for subfolder in os.listdir(root_folder):
+            match = re.match(r"Episode_(\d+)", subfolder)
+            if match:
+                episode_number = match.group(1)
+                episode_desc_path = os.path.join(root_folder, subfolder, "episode_desc.txt")
+                if os.path.isfile(episode_desc_path):
+                    desc_content = read_file_with_fallback(episode_desc_path)
+                    out_f.write(f"Episode {episode_number} summary:\n{desc_content}\n-------\n")
+
+    print(f"Summaries written to: {output_file}")
+    return output_file
