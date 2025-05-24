@@ -5,5 +5,4 @@ __pycache__/
 state.json
 spotify_state.json
 test*
-*.txt
 sources/**
