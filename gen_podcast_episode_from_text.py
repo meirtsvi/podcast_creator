@@ -80,7 +80,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path):
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
 
-    model = "gemini-2.5-flash-preview-tts"
+    model = "gemini-2.5-pro-preview-tts"
     
     # Split text into lines and filter out empty lines
     lines = [line.strip() for line in podcast_text.split('\n') if line.strip()]

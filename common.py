@@ -7,13 +7,10 @@ import requests
 
 from google import genai
 from bs4 import BeautifulSoup
-
 from transistor import upload_episode_to_transistor
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Constants
 MULTI_URLS_LINKS_FILENAME = "sources/website_multi_links.csv"
 SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
 PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
