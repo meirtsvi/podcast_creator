@@ -105,7 +105,7 @@ def main(configuration: Configuration):
 
 if __name__ == "__main__":
     os.environ["PYTHONHTTPSVERIFY"] = "0"
-    langs = sys.argv[1] if len(sys.argv) > 1 else "russian"
+    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
     for lang in langs.split(","):
         configuration = Configuration(lang)
         main(configuration)

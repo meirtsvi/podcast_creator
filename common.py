@@ -3,6 +3,7 @@ import re
 import glob
 import os
 import requests
+import time
 
 from google import genai
 from bs4 import BeautifulSoup
@@ -12,9 +13,22 @@ from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME,
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model="gemini-2.0-flash", contents=prompt
-    )
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
+            ret = response.text.strip()
+            break  # Success, exit the loop
+        except Exception as e:
+            if attempt < max_retries - 1:  # If not the last attempt
+                print(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in 10 seconds...")
+                time.sleep(10)  # Wait for 10 seconds before retrying
+            else:
+                print(f"All {max_retries} attempts failed. Last error: {str(e)}")
+                raise  # Re-raise the last exception if all retries failed
+
     ret = response.text.strip()
     return ret
 
