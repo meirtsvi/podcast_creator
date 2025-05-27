@@ -1,2 +1,2 @@
-ייצר שם בעברית לפרק בפודקאסט מהכותרות הבאות, קח מכל כותרת את הנושא ונסה לתת שם מפתה שמסכם 3 כותרות באופן ספציפי ואת השאר בשאר השורה. סכם בשורה אחת. *אל* תיתן שם שמתחיל ב:'הנה הצעה לשם הפרק', תן רק את השם, התחל תמיד במילה בעברית. התוצאה צריכה להיות קצרה מ-100 תווים.
+Create a name for a podcast episode from the following titles. Take the topic from each title and try to give an enticing name that specifically summarizes three of the titles, and covers the rest in the remainder of the line. Summarize in a single line. **Do not** give a name that starts with: “Here is a suggested episode name”; give only the name. The result should be less than 100 characters.
 

@@ -75,12 +75,12 @@ def generate_with_retry(client, model, contents, config, max_retries=3, initial_
                 print(f"All {max_retries} attempts failed")
                 raise last_error
 
-def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path):
+def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names):
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
 
-    model = "gemini-2.5-pro-preview-tts"
+    model = "gemini-2.5-flash-preview-tts"
     
     # Split text into lines and filter out empty lines
     lines = [line.strip() for line in podcast_text.split('\n') if line.strip()]
@@ -113,7 +113,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path):
                 multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
                     speaker_voice_configs=[
                         types.SpeakerVoiceConfig(
-                            speaker="יובל",
+                            speaker=speaker_names[0],
                             voice_config=types.VoiceConfig(
                                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
                                     voice_name="Charon"
@@ -121,7 +121,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path):
                             ),
                         ),
                         types.SpeakerVoiceConfig(
-                            speaker="עמית",
+                            speaker=speaker_names[1],
                             voice_config=types.VoiceConfig(
                                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
                                     voice_name="Kore"
@@ -252,3 +252,12 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
 
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
+def main():
+    with open(r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\podcast_text.txt", "r", encoding="utf-8") as f:
+        podcast_text = f.read()
+    episode_file_path = r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3"
+    speaker_names = ["Amit", "Yuval"]
+    generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
+
+if __name__ == "__main__":
+    main()

@@ -2,27 +2,13 @@ from pathlib import Path as p
 import re
 import glob
 import os
-from dotenv import load_dotenv
 import requests
 
 from google import genai
 from bs4 import BeautifulSoup
 from transistor import upload_episode_to_transistor
 
-load_dotenv()
-
-MULTI_URLS_LINKS_FILENAME = "sources/website_multi_links.csv"
-SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
-PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
-PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_NAME_FILENAME = "prompt_for_single_url_podcast_episode_name.txt"
-PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_multi_urls_podcast_episode_desc.txt"
-PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_single_url_podcast_episode_desc.txt"
-PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION = "prompt_for_multi_urls_podcast_generation.txt"
-PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION = "prompt_for_single_url_podcast_generation.txt"
-EPISODE_NAME_FILENAME = "episode_name.txt"
-EPISODE_DESC_FILENAME = "episode_desc.txt"
-EPISODE_URLS_FILENAME = "urls.txt"
-OUTPUT_DIR = os.getenv("OUTPUT_DIR")
+from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -32,20 +18,20 @@ def call_genai_api(prompt):
     ret = response.text.strip()
     return ret
 
-def create_episode_name(titles, episode_number):
-    prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_NAME_FILENAME if len(titles) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_NAME_FILENAME
-    with open(prompt_filename, "r", encoding="utf-8") as f:
-        prompt = f.read()
-    prompt = prompt + "\n".join(titles)
-    return "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
+def create_episode_title(configuration: Configuration, titles: [], episode_number: int):
+    prompt = configuration.prompt_for_episode_title_generation
+    prompt += "\n".join(titles)
+    title = "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
+    final_title = call_genai_api("Translate this title to " + configuration.output_language + " language: " + title + ". Provide only the translation without any additional text as a plain text. no newlines.")
+    return final_title
 
-def create_episode_description(urls, titles):
-    prompt_filename = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME if len(urls) > 1 else PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME
-    with open(prompt_filename, "r", encoding="utf-8") as f:
-        prompt = f.read()
+def create_episode_description(configuration: Configuration, urls: [], titles: []):
+    prompt = configuration.prompt_for_episode_description_generation + ". Format text " + configuration.text_direction + "."
     url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
-    prompt = prompt + "\n".join(url_title_pairs)
-    return call_genai_api(prompt)
+    prompt += "\n".join(url_title_pairs)
+    desc = call_genai_api(prompt)
+    final_desc = call_genai_api("Translate this text to " + configuration.output_language + " language: " + desc + ". Provide only the translation and links without any additional text. Keep html format.")
+    return final_desc
 
 def create_source_list(source_type, batch_size=10) -> list:
     root_directory = p(__file__).parent
@@ -79,12 +65,12 @@ def create_source_list(source_type, batch_size=10) -> list:
         print(f"Found {len(urls)} batches of URLs to process.\n")
         return urls
 
-def get_processed_urls():
+def get_processed_urls(configuration: Configuration) -> set:
     """Read all URLs from episode folders' urls.txt files."""
     processed_urls = set()
 
     # Find all urls.txt files in episode folders
-    url_files = glob.glob(str(p(OUTPUT_DIR) / "Episode_*" / "urls.txt"))
+    url_files = glob.glob(str(p(configuration.podcast_root_folder) / "Episode_*" / "urls.txt"))
     for url_file in url_files:
         try:
             with open(url_file, 'r') as f:
@@ -92,12 +78,13 @@ def get_processed_urls():
                 processed_urls.update(urls)
         except Exception as e:
             print(f"Error reading {url_file}: {str(e)}")
-    
+
+    print(f"Found {len(processed_urls)} processed URLs")
     return processed_urls
 
-def get_next_episode_number():
+def get_next_episode_number(configuration: Configuration) -> int:
     """Get the next episode number based on existing episode folders."""
-    podcast_dir = p(OUTPUT_DIR)
+    podcast_dir = p(configuration.podcast_root_folder)
     episode_folders = glob.glob(str(podcast_dir / "Episode_*"))
     if not episode_folders:
         return 1
@@ -113,44 +100,32 @@ def get_next_episode_number():
     
     return max(episode_numbers) + 1 if episode_numbers else 1
 
-def create_episode_folder(episode_number, urls, notebook_name, podcast_description):
-    """Create a new episode folder with urls.txt, name.txt and description.txt files."""
-    episode_dir = p(OUTPUT_DIR) / f"Episode_{episode_number}"
-    
+def create_episode_folder(configuration: Configuration):
     # Create episode directory if it doesn't exist
-    episode_dir.mkdir(exist_ok=True)
+    configuration.episode_folder.mkdir(exist_ok=True)
 
-    previous_summaries_file_path = create_previous_episodes_summaries(episode_dir)
+    previous_summaries_file_path = create_previous_episodes_summaries(configuration)
 
+    episode_dir = p(configuration.episode_folder)
     # Write podcast episode name to a file
-    name_file = episode_dir / EPISODE_NAME_FILENAME
-    with open(name_file, 'w', encoding="utf-8") as f:
-        f.write(notebook_name)
+    title_filename = episode_dir / EPISODE_TITLE_FILENAME
+    with open(title_filename, 'w', encoding="utf-8") as f:
+        f.write(configuration.episode_title)
     
     # Write podcast episode description a file
     desc_file = episode_dir / EPISODE_DESC_FILENAME
     with open(desc_file, 'w', encoding="utf-8") as f:
-        f.write(podcast_description)
+        f.write(configuration.episode_description)
     
-    print(f"Created episode folder {episode_dir} with {len(urls)} URLs")
-    return previous_summaries_file_path, episode_dir
+    print(f"Created episode folder {episode_dir} with {len(configuration.episode_urls)} URLs")
+    return previous_summaries_file_path
 
-def upload_new_podcast_episode(episode_folder, episode_full_path, episode_audio_file_path):
-    print(f"Uploading new podcast episode from {episode_full_path}...")
-    match = re.search(r"Episode_(\d+)", episode_folder)
-    if not match:
-        raise ValueError(f"Episode number not found in {episode_folder}")
-    episode_number = match.group(1)
-    episode_name_file = episode_full_path / EPISODE_NAME_FILENAME
-    with open(episode_name_file, 'r', encoding="utf-8") as f:
-        episode_name = f.read()
-
-    desc_file = episode_full_path / EPISODE_DESC_FILENAME
-    with open(desc_file, 'r', encoding="utf-8") as f:
-        episode_desc = f.read()
-
-    upload_episode_to_transistor("1", episode_number, episode_name, episode_desc, episode_audio_file_path)
-    print(f"Uploaded new podcast episode {episode_name} to Transisotr.")
+def upload_new_podcast_episode(configuration: Configuration):
+    episode_folder = configuration.episode_folder
+    print(f"Uploading new podcast episode from {str(episode_folder)}...")
+    if not configuration.transistor_show_id == "0":
+        upload_episode_to_transistor(configuration)
+    print(f"Uploaded new podcast episode {configuration.episode_title} to Transistor.")
 
 def generate_title_from_url(url):
     try:
@@ -174,10 +149,10 @@ def generate_title_from_url(url):
     except Exception as e:
         print(f"Error extracting title from {url}: {str(e)}")
         return False, "", ""
-    prompt = f"Generate a concise, informative title for this article URL. Don't print 'here is consise...', just give the title: {final_url if 'final_url' in locals() else url}"
+    prompt = f"Generate a concise, informative title for this article URL. Don't print 'here is concise...', just give the title: {final_url if 'final_url' in locals() else url}"
     return True, call_genai_api(prompt), url
 
-def create_previous_episodes_summaries(episode_folder):
+def create_previous_episodes_summaries(configuration: Configuration):
 
     def read_file_with_fallback(path):
         encodings = ['utf-8', 'cp1255', 'iso-8859-1']
@@ -191,8 +166,8 @@ def create_previous_episodes_summaries(episode_folder):
         with open(path, "rb") as f:
             return f.read().decode('utf-8', errors='replace').strip()
 
-    root_folder = p(OUTPUT_DIR)
-    output_file = os.path.join(episode_folder, "summaries.txt")
+    root_folder = p(configuration.podcast_root_folder)
+    output_file = os.path.join(configuration.episode_folder, "summaries.txt")
 
     with open(output_file, "w", encoding="utf-8") as out_f:
         for subfolder in os.listdir(root_folder):

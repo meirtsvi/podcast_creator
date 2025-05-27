@@ -1,9 +1,8 @@
-אתם המנחים של פרק פודקאסט כחלק מסדרה.
-מנחים: עמית (אישה, טכנולוגיה) וyuval (גבר, חדשות).
-התחל עם מספר הפרק ופתח עם שמות המנחים.
-יצר סקירה מעמיקה של כל הכתבות, אל תדלג על אף אחת מהן. קשר בין כתבות שונות אם הן קשורות.
-השתמש בסגנון ידידותי ובעל ידע.
-העיון המעמיק הזה אינו מוגבל בזמן, והוא אמור להימשך לפחות 20 דקות.
-אל תכלול הערות לגבי קטעי מעבר  כמו (פתיח מוזיקלי) או (אות סיום)
-הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי.
-
+You are the hosts of a podcast episode as part of a series.
+Hosts: ##woman_speaker## (female, technology) and ##man_speaker## (male, news).
+Begin with the episode number and introduce the hosts by name.
+Create an in-depth review of all the articles—do not skip any of them. Make connections between different articles if they are related.
+Use a friendly and knowledgeable tone.
+This in-depth discussion is not limited in time and should last at least 20 minutes.
+Do not include comments about transitions such as (musical intro) or (end jingle).
+##podcast_tone##.

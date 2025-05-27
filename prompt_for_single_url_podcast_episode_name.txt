@@ -1,1 +1,1 @@
-ייצר שם בעברית לפרק בפודקאסט שמתחיל ב: "פרק מיוחד:" ואז הוסף את הכותרת שקיבלת. סכם בשורה אחת. אל תיתן הקדמה כמו 'הנה הצעה...', תן רק את השם, התחל תמיד במילה בעברית. התוצאה צריכה להיות קצרה מ-50 תווים.
+Create a for a podcast episode that starts with: "Special episode:" and then add the title you received. Summarize title in a single line. Do not give an introduction such as "Here is a suggestion..."; give only the name. The result should be less than 50 characters.

@@ -1,2 +1,3 @@
-הנה רשימה של כתובות רשת ועבור כל כתובת רשת את הכותרת שלה. צור סיכום של הכותרות בעברית. אם כמה כותרות מדברות על אותה החברה, סכם את כולן ביחד. *אל* תחזיר פתיחה כמו ,הנה הסיכום' או תוספת אחרת, רק את הסיכום. אחרי הסיכום, הדפס 2 שורות רווח ואז הדפס את רשימת הכתובות, כל כתובת בשורה נפרדת.
-פרמט את כל הטקסט כHTML חוקי מפורמט מימין לשמאל.
+Here is a list of URLs, and for each URL, its title. Create a summary of the titles. If several titles refer to the same company, summarize them together. **Do not** return an introduction such as “Here is the summary” or any other addition—only the summary.
+After the summary, print 2 blank lines and then print the list of URLs, each URL on a separate line.
+Format all the text as valid HTML.
