@@ -64,7 +64,7 @@ def generate_with_retry(client, model, contents, config, max_retries=3, initial_
                 yield chunk
             return  # Success, exit the function
             
-        except ServerError as e:
+        except Exception as e:
             last_error = e
             if attempt < max_retries - 1:  # Don't sleep on the last attempt
                 print(f"Attempt {attempt + 1} failed with error: {e}")
@@ -140,7 +140,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 contents=contents,
                 config=generate_content_config,
                 max_retries=3,
-                initial_delay=1
+                initial_delay=10
             ):
                 if (
                     chunk.candidates is None
@@ -163,6 +163,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                     print(chunk.text)
         except Exception as e:
             print(f"Failed to generate audio for chunk {i//10}: {e}")
+
             continue
     
     # Merge all generated WAV files
