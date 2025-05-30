@@ -148,10 +148,10 @@ def generate_title_from_url(url):
     try:
         _, response = get_markdown_from_url(url)
         final_url = response.url
-        print(f"Original URL: {url}")
-        print(f"Final URL after redirects: {final_url}")
+        logger.info(f"Original URL: {url}")
+        logger.info(f"Final URL after redirects: {final_url}")
         if "github.com" in final_url:
-            print(f"Skipping {url} because it's a GitHub page")
+            logger.info(f"Skipping {url} because it's a GitHub page")
             return False, "", ""
         soup = BeautifulSoup(response.text, 'html.parser')
         if soup.title and soup.title.string:
@@ -161,7 +161,7 @@ def generate_title_from_url(url):
             soup.title.string = title
             return True, soup.title.string.strip(), final_url
     except Exception as e:
-        print(f"Error extracting title from {url}: {str(e)}")
+        logger.error(f"Error extracting title from {url}: {str(e)}")
         return False, "", ""
     prompt = f"Generate a concise, informative title for this article URL. Don't print 'here is concise...', just give the title: {final_url if 'final_url' in locals() else url}"
     return True, call_genai_api(prompt), url
