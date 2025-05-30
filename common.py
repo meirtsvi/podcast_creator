@@ -193,5 +193,5 @@ def create_previous_episodes_summaries(configuration: Configuration):
                     desc_content = read_file_with_fallback(episode_desc_path)
                     out_f.write(f"Episode {episode_number} summary:\n{desc_content}\n-------\n")
 
-    print(f"Summaries written to: {output_file}")
+    logger.info(f"Created previous episodes summaries file: {output_file}")
     return output_file

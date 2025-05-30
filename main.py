@@ -45,10 +45,11 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     podcast_text = generate_podcast_text(configuration)
     with open(episode_dir / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
-    speakers = call_genai_api("Extract two speaker names. Return a string with format 'speaker1,speaker2' from this text:" + podcast_text)
-    speaker_names = speakers.split(",")
-    speaker_names = [name.strip().strip("'") for name in speaker_names if name.strip()]
+    # speakers = call_genai_api("Extract two speaker names. Return a string with format 'speaker1,speaker2' from this text:" + podcast_text)
+    # speaker_names = speakers.split(",")
+    # speaker_names = [name.strip().strip("'") for name in speaker_names if name.strip()]
     # Extracted speaker names: ["['Yuval", "Amit']"]
+    speaker_names = [configuration.man_speaker_name, configuration.woman_speaker_name]
     logger.info(f"Extracted speaker names: {speaker_names}")
     generate_podcast_episode_audio_from_text(podcast_text, episode_audio_file_path, speaker_names)
     add_pre_and_post_audio(episode_audio_file_path)

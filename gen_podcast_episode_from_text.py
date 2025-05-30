@@ -74,8 +74,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
     """
     global current_key_index
     delay = initial_delay
-    last_error = None
-    
+
     for attempt in range(max_retries):
         logger.info(f"Attempt {attempt + 1}/{max_retries} for generating content...")
         try:
@@ -99,10 +98,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
             return  # Success, exit the function
             
         except ServerError as se:
-            last_error = se
-            error_message = str(se).lower()
             logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
-
             if attempt < max_retries - 1:
                 logger.info(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
@@ -112,23 +108,21 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 raise  # Re-raise the last error
 
         except Exception as e:
-            last_error = e
             error_message = str(e).lower()
             logger.error(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
 
             # Check if this is a rate limit error (HTTP 429)
-            #   Attempt 1 failed with unexpected error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_requests_per_model_per_day', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel'}]}, {'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}]}}
             if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
                 logger.info(f"  Rate limit exceeded. Rotating to next API key...")
                 # Get the next API key
                 next_key = get_next_api_key()
                 logger.info(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
-
             elif attempt < max_retries - 1:
                 logger.info(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2
-            else:
+
+            if attempt == max_retries:
                 logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
                 raise  # Re-raise the last error
 
@@ -154,7 +148,8 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
         chunk_lines = lines[i:i+NO_LINES_TO_PROCESS]
         # Join the lines with newlines
         chunk_text = '\n'.join(chunk_lines)
-        
+        logger.info(chunk_text)
+
         contents = [
             types.Content(
                 role="user",
@@ -165,7 +160,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
         ]
         
         generate_content_config = types.GenerateContentConfig(
-            temperature=1,
+            temperature=1.0,
             response_modalities=[
                 "audio",
             ],
@@ -184,7 +179,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                             speaker=speaker_names[1],
                             voice_config=types.VoiceConfig(
                                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    voice_name="Kore"
+                                    voice_name="Zephyr"
                                 )
                             ),
                         ),
@@ -198,7 +193,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 model=model,
                 contents=contents,
                 config=generate_content_config,
-                max_retries=3,
+                max_retries=len(GEMINI_API_KEYS),
                 initial_delay=10
             ):
                 if (
@@ -312,10 +307,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\podcast_text.txt", "r", encoding="utf-8") as f:
+    with open(r"c:\src\debug\podcast_text.txt", "r", encoding="utf-8") as f:
+    # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3"
-    speaker_names = ["Amit", "Yuval"]
+    episode_file_path = r"c:\temp\temp2.mp3"
+    speaker_names = ["יובל", "עמית"]
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")
