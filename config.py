@@ -101,3 +101,5 @@ class Configuration:
     def set_episode_titles(self, titles: []):
         self.episode_titles = titles
 
+    def set_episode_contents(self, contents: []):
+        self.episode_contents = contents

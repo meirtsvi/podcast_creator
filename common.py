@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup
 from transistor import upload_episode_to_transistor
 
 from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
+from url_to_md import get_markdown_from_url
+
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -143,10 +145,7 @@ def upload_new_podcast_episode(configuration: Configuration):
 
 def generate_title_from_url(url):
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.202 Safari/537.36'
-        }
-        response = requests.get(url, verify=False, allow_redirects=True, timeout=30, headers=headers)
+        _, response = get_markdown_from_url(url)
         final_url = response.url
         print(f"Original URL: {url}")
         print(f"Final URL after redirects: {final_url}")

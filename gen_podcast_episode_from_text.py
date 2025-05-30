@@ -11,6 +11,27 @@ from google.genai.errors import ServerError
 
 dotenv.load_dotenv()
 
+# Define available API keys and tracking variables
+GEMINI_API_KEYS = [
+    os.environ.get("GEMINI_API_KEY_WORK"),
+    os.environ.get("GEMINI_API_KEY_VAZAZON"),
+    os.environ.get("GEMINI_API_KEY_IAC"),
+    os.environ.get("GEMINI_API_KEY_PERSONAL"),
+]
+# Remove None values in case any environment variables aren't set
+GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
+current_key_index = 0
+
+def get_next_api_key():
+    """Rotate to the next available API key."""
+    global current_key_index
+    current_key_index = (current_key_index + 1) % len(GEMINI_API_KEYS)
+    return GEMINI_API_KEYS[current_key_index]
+
+def get_current_api_key():
+    """Get the current API key."""
+    return GEMINI_API_KEYS[current_key_index]
+
 def save_binary_file(file_name, data):
     f = open(file_name, "wb")
     f.write(data)
@@ -37,11 +58,10 @@ def merge_wav_files(input_files, output_file):
             with wave.open(input_file, 'rb') as w:
                 output.writeframes(w.readframes(w.getnframes()))
 
-def generate_with_retry(client, model, contents, config, max_retries=3, initial_delay=1):
+def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1):
     """Generate content with retry mechanism.
     
     Args:
-        client: The Gemini client
         model: The model name
         contents: The content to generate
         config: The generation config
@@ -51,34 +71,68 @@ def generate_with_retry(client, model, contents, config, max_retries=3, initial_
     Returns:
         The generated content or None if all retries failed
     """
+    global current_key_index
     delay = initial_delay
     last_error = None
     
     for attempt in range(max_retries):
+        print(f"Attempt {attempt + 1}/{max_retries} for generating content...")
         try:
-            for chunk in client.models.generate_content_stream(
+            chunk_count = 0
+
+            client = genai.Client(
+                api_key=get_current_api_key(),
+            )
+
+            # Ensure the stream is actually being iterated
+            stream_iterator = client.models.generate_content_stream(
                 model=model,
                 contents=contents,
                 config=config,
-            ):
+            )
+            for chunk in stream_iterator:
+                chunk_count += 1
+                # print(f"  Received chunk {chunk_count}...") # Uncomment for very verbose logging
                 yield chunk
+            print(f"  Successfully received {chunk_count} chunks.")
             return  # Success, exit the function
             
+        except ServerError as se:
+            last_error = se
+            error_message = str(se).lower()
+            print(f"  Attempt {attempt + 1} failed with ServerError: {se}")
+
+            if attempt < max_retries - 1:
+                print(f"  Retrying in {delay} seconds...")
+                time.sleep(delay)
+                delay *= 2
+            else:
+                print(f"  All {max_retries} attempts failed due to ServerError.")
+                raise  # Re-raise the last error
+
         except Exception as e:
             last_error = e
-            if attempt < max_retries - 1:  # Don't sleep on the last attempt
-                print(f"Attempt {attempt + 1} failed with error: {e}")
-                print(f"Retrying in {delay} seconds...")
+            error_message = str(e).lower()
+            print(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
+
+            # Check if this is a rate limit error (HTTP 429)
+            #   Attempt 1 failed with unexpected error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_requests_per_model_per_day', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel'}]}, {'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}]}}
+            if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
+                print(f"  Rate limit exceeded. Rotating to next API key...")
+                # Get the next API key
+                next_key = get_next_api_key()
+                print(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
+
+            elif attempt < max_retries - 1:
+                print(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
-                delay *= 2  # Exponential backoff
+                delay *= 2
             else:
-                print(f"All {max_retries} attempts failed")
-                raise last_error
+                print(f"  All {max_retries} attempts failed due to unexpected error.")
+                raise  # Re-raise the last error
 
 def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names):
-    client = genai.Client(
-        api_key=os.environ.get("GEMINI_API_KEY"),
-    )
+    print("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
     
@@ -87,11 +141,16 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
     
     # List to store generated WAV files
     generated_files = []
-    
-    # Process 10 lines at a time
-    for i in range(0, len(lines), 10):
-        # Get next 10 lines (or remaining lines if less than 10)
-        chunk_lines = lines[i:i+10]
+
+    NO_LINES_TO_PROCESS=3
+
+    # Remove empty lines
+    lines = [line for line in lines if line.strip()]
+
+    # Process NO_LINES_TO_PROCESS lines at a time
+    for i in range(0, len(lines), NO_LINES_TO_PROCESS):
+        # Get next NO_LINES_TO_PROCESS lines (or remaining lines if less than NO_LINES_TO_PROCESS)
+        chunk_lines = lines[i:i+NO_LINES_TO_PROCESS]
         # Join the lines with newlines
         chunk_text = '\n'.join(chunk_lines)
         
@@ -135,7 +194,6 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
 
         try:
             for chunk in generate_with_retry(
-                client=client,
                 model=model,
                 contents=contents,
                 config=generate_content_config,
@@ -149,7 +207,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 ):
                     continue
                 if chunk.candidates[0].content.parts[0].inline_data:
-                    file_name = f"output_{i//10}"  # Use chunk index for file naming
+                    file_name = f"output_{i//NO_LINES_TO_PROCESS}"  # Use chunk index for file naming
                     inline_data = chunk.candidates[0].content.parts[0].inline_data
                     data_buffer = inline_data.data
                     file_extension = mimetypes.guess_extension(inline_data.mime_type)
@@ -162,10 +220,9 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 else:
                     print(chunk.text)
         except Exception as e:
-            print(f"Failed to generate audio for chunk {i//10}: {e}")
+            print(f"Failed to generate audio for chunk {i//NO_LINES_TO_PROCESS}: {e}")
+            raise e
 
-            continue
-    
     # Merge all generated WAV files
     if generated_files:
         merge_wav_files(generated_files, episode_file_path)

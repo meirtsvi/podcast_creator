@@ -5,7 +5,6 @@ from google import genai
 from google.genai import types
 
 from config import Configuration
-from url_to_md import create_markdown_from_url
 
 dotenv.load_dotenv()
 
@@ -22,11 +21,11 @@ def generate_podcast_text(configuration: Configuration):
     )
 
     parts = [types.Part.from_text(text=input)]
-    for url in configuration.episode_urls:
-        md_text = create_markdown_from_url(url)
-        if not md_text:
-            continue
-        parts.append(types.Part.from_text(text=md_text))
+
+    # Use content from configuration instead of calling create_markdown_from_url
+    for content in configuration.episode_contents:
+        if content:
+            parts.append(types.Part.from_text(text=content))
 
     #model = "gemini-2.5-pro-preview-05-06"
     model = "gemini-2.5-flash-preview-05-20"
@@ -48,5 +47,6 @@ def generate_podcast_text(configuration: Configuration):
     ):
         ret += chunk.text
 
+    print(f"Created podcast text: {ret[:100]}... (length: {len(ret)})")
     return ret
 
