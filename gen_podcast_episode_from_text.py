@@ -8,6 +8,7 @@ from google.genai import types
 import dotenv
 import wave
 from google.genai.errors import ServerError
+from logger import logger
 
 dotenv.load_dotenv()
 
@@ -36,7 +37,7 @@ def save_binary_file(file_name, data):
     f = open(file_name, "wb")
     f.write(data)
     f.close()
-    print(f"File saved to: {file_name}")
+    logger.info(f"File saved to: {file_name}")
 
 def merge_wav_files(input_files, output_file):
     """Merge multiple WAV files into a single WAV file.
@@ -76,7 +77,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
     last_error = None
     
     for attempt in range(max_retries):
-        print(f"Attempt {attempt + 1}/{max_retries} for generating content...")
+        logger.info(f"Attempt {attempt + 1}/{max_retries} for generating content...")
         try:
             chunk_count = 0
 
@@ -92,47 +93,47 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
             )
             for chunk in stream_iterator:
                 chunk_count += 1
-                # print(f"  Received chunk {chunk_count}...") # Uncomment for very verbose logging
+                # logger.debug(f"  Received chunk {chunk_count}...") # Uncomment for very verbose logging
                 yield chunk
-            print(f"  Successfully received {chunk_count} chunks.")
+            logger.info(f"  Successfully received {chunk_count} chunks.")
             return  # Success, exit the function
             
         except ServerError as se:
             last_error = se
             error_message = str(se).lower()
-            print(f"  Attempt {attempt + 1} failed with ServerError: {se}")
+            logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
 
             if attempt < max_retries - 1:
-                print(f"  Retrying in {delay} seconds...")
+                logger.info(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2
             else:
-                print(f"  All {max_retries} attempts failed due to ServerError.")
+                logger.error(f"  All {max_retries} attempts failed due to ServerError.")
                 raise  # Re-raise the last error
 
         except Exception as e:
             last_error = e
             error_message = str(e).lower()
-            print(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
+            logger.error(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
 
             # Check if this is a rate limit error (HTTP 429)
             #   Attempt 1 failed with unexpected error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_requests_per_model_per_day', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel'}]}, {'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}]}}
             if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
-                print(f"  Rate limit exceeded. Rotating to next API key...")
+                logger.info(f"  Rate limit exceeded. Rotating to next API key...")
                 # Get the next API key
                 next_key = get_next_api_key()
-                print(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
+                logger.info(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
 
             elif attempt < max_retries - 1:
-                print(f"  Retrying in {delay} seconds...")
+                logger.info(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2
             else:
-                print(f"  All {max_retries} attempts failed due to unexpected error.")
+                logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
                 raise  # Re-raise the last error
 
 def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names):
-    print("Generating podcast episode audio from text...")
+    logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
     
@@ -218,23 +219,23 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                     save_binary_file(output_file, data_buffer)
                     generated_files.append(output_file)
                 else:
-                    print(chunk.text)
+                    logger.info(chunk.text)
         except Exception as e:
-            print(f"Failed to generate audio for chunk {i//NO_LINES_TO_PROCESS}: {e}")
+            logger.error(f"Failed to generate audio for chunk {i//NO_LINES_TO_PROCESS}: {e}")
             raise e
 
     # Merge all generated WAV files
     if generated_files:
         merge_wav_files(generated_files, episode_file_path)
-        print("Merged all files into final_output.wav")
-        
+        logger.info("Merged all files into final_output.wav")
+
         # Clean up individual files
         for file in generated_files:
             try:
                 os.remove(file)
-                print(f"Removed temporary file: {file}")
+                logger.info(f"Removed temporary file: {file}")
             except Exception as e:
-                print(f"Error removing file {file}: {e}")
+                logger.error(f"Error removing file {file}: {e}")
 
 def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
     """Generates a WAV file header for the given audio data and parameters.
@@ -315,7 +316,10 @@ def main():
         podcast_text = f.read()
     episode_file_path = r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3"
     speaker_names = ["Amit", "Yuval"]
+    logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
+    logger.info("Podcast episode generation completed.")
 
 if __name__ == "__main__":
     main()
+

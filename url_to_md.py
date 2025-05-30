@@ -6,6 +6,7 @@ import time
 
 import requests
 import trafilatura
+from logger import logger
 
 def get_markdown_from_url(url):
     try:
@@ -29,7 +30,7 @@ def get_markdown_from_url(url):
         }
 
         # First attempt without headers (simpler approach)
-        print(f"Trying {url} without headers...")
+        logger.info(f"Trying {url} without headers...")
 
         # Try without headers
         for retry in range(max_retries):
@@ -40,21 +41,21 @@ def get_markdown_from_url(url):
                     downloaded = response.text
                     md_text = trafilatura.extract(downloaded, output_format="markdown")
                     if md_text:
-                        print(f"Successfully extracted markdown without headers (attempt {retry+1}).")
+                        logger.info(f"Successfully extracted markdown without headers (attempt {retry+1}).")
                         return md_text, response
                     else:
-                        print(f"Got response but couldn't extract markdown without headers (attempt {retry+1}).")
+                        logger.info(f"Got response but couldn't extract markdown without headers (attempt {retry+1}).")
                         break
 
                 if retry < max_retries - 1:
                     wait_time = random.uniform(10, 15)
-                    print(f"Retry {retry+1}/{max_retries} without headers, waiting {wait_time:.2f} seconds...")
+                    logger.info(f"Retry {retry+1}/{max_retries} without headers, waiting {wait_time:.2f} seconds...")
                     time.sleep(wait_time)
             except Exception as e:
-                print(f"Error without headers (attempt {retry+1}): {e}")
+                logger.error(f"Error without headers (attempt {retry+1}): {e}")
 
         # If we get here, the without-headers approach failed
-        print("Without-headers approach failed. Trying with headers...")
+        logger.info("Without-headers approach failed. Trying with headers...")
 
         # Try with headers
         for retry in range(max_retries):
@@ -66,24 +67,24 @@ def get_markdown_from_url(url):
                     md_text = trafilatura.extract(downloaded, output_format="markdown")
 
                     if md_text:
-                        print(f"Successfully extracted markdown with headers (attempt {retry+1}).")
+                        logger.info(f"Successfully extracted markdown with headers (attempt {retry+1}).")
                         return md_text, response
                     else:
-                        print(f"Got response but couldn't extract markdown with headers (attempt {retry+1}).")
+                        logger.info(f"Got response but couldn't extract markdown with headers (attempt {retry+1}).")
                         break
 
                 if retry < max_retries - 1:
                     wait_time = random.uniform(10, 15)
-                    print(f"Retry {retry+1}/{max_retries} with headers, waiting {wait_time:.2f} seconds...")
+                    logger.info(f"Retry {retry+1}/{max_retries} with headers, waiting {wait_time:.2f} seconds...")
                     time.sleep(wait_time)
             except Exception as e:
-                print(f"Error with headers (attempt {retry+1}): {e}")
+                logger.error(f"Error with headers (attempt {retry+1}): {e}")
 
         # If we get here, both approaches failed
-        print(f"Failed to extract markdown from {url} after trying without and with headers")
+        logger.error(f"Failed to extract markdown from {url} after trying without and with headers")
         return None, None
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error: {e}")
         return None, None
 
 if __name__ == "__main__":
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     #md = create_markdown_from_url("https://www.fastcompany.com/91331507/leap-71-ai-printing-rocket-engine-faster-cheaper")
     #md, code = create_markdown_from_url("https://theorthagonist.substack.com/p/why-reading-business-books-is-a-waste")
     #md, code = create_markdown_from_url("https://www.cleverthinkingsoftware.com/programmers-will-be-replaced-by-people-with-ideas")
-    print(md)
+    logger.info(md)
 
     # New functionality: process URLs from urls.txt files in specified directory
     base_dir = r"c:\Users\meir\Dropbox\tech_podcast_hebrew"
@@ -110,7 +111,7 @@ if __name__ == "__main__":
 
         for url_file in url_files:
             # Only print the path of the current file on screen
-            print(f"Processing URLs from: {url_file}")
+            logger.info(f"Processing URLs from: {url_file}")
 
             # Write detailed information to the results file
             results_file.write(f"Processing URLs from: {url_file}\n")
@@ -141,9 +142,10 @@ if __name__ == "__main__":
                 error_msg = f"Error processing file {url_file}: {e}"
                 results_file.write(error_msg + "\n")
                 results_file.write("-" * 50 + "\n")
+                logger.error(error_msg)
 
         # Write summary at the end
         results_file.write(f"\nProcessing completed at {datetime.datetime.now()}\n")
         results_file.write(f"Results saved to {os.path.abspath(output_filename)}\n")
 
-    print(f"All results written to {os.path.abspath(output_filename)}")
+    logger.info(f"All results written to {os.path.abspath(output_filename)}")

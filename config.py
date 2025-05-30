@@ -1,6 +1,7 @@
 import dotenv
 import os
 from pathlib import Path as p
+from logger import logger
 
 SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
 MULTI_URL_LINKS_FILENAME = "sources/website_multi_links.csv"
@@ -66,7 +67,7 @@ class Configuration:
             self.podcast_name = "Tech Updates"
             self.text_direction = "left-to-right"
         else:
-            print("Cannot set transistor show id for language: " + language)
+            logger.error(f"Cannot set transistor show id for language: {language}")
             exit(1)
 
 

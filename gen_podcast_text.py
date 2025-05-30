@@ -3,12 +3,14 @@ import os
 import dotenv
 from google import genai
 from google.genai import types
+from logger import logger
 
 from config import Configuration
 
 dotenv.load_dotenv()
 
 def generate_podcast_text(configuration: Configuration):
+    logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
     prompt_suffix = "Use the following for the episode content:"
     prompt = configuration.prompt_for_podcast_generation
     prompt += "Podcast name: " + configuration.podcast_name + ".\n"
@@ -47,6 +49,6 @@ def generate_podcast_text(configuration: Configuration):
     ):
         ret += chunk.text
 
-    print(f"Created podcast text: {ret[:100]}... (length: {len(ret)})")
+    logger.info(f"Created podcast text: {ret[:100]}... (length: {len(ret)})")
     return ret
 

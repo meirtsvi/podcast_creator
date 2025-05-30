@@ -13,20 +13,21 @@ from mp3 import add_pre_and_post_audio
 from gen_podcast_text import generate_podcast_text
 from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
 from url_to_md import get_markdown_from_url
+from logger import logger
 
 def process_batch(configuration: Configuration, batch_number: int, episode_number: int):
     urls = configuration.episode_urls
     titles = configuration.episode_titles
 
-    print(f"Processing batch {batch_number}")
-    print(f"# of URLs in this batch: {len(urls)}")
+    logger.info(f"Processing batch {batch_number}")
+    logger.info(f"# of URLs in this batch: {len(urls)}")
 
     episode_title = create_episode_title(configuration, titles, episode_number)
-    print(f'Episode name: {episode_title}')
+    logger.info(f'Episode name: {episode_title}')
 
     episode_description = create_episode_description(configuration, urls, titles)
     episode_description = episode_description.replace("```html", "").replace("```", "").replace("\n", "")
-    print(f'Episode description: {episode_description}')
+    logger.info(f'Episode description: {episode_description}')
 
     configuration.set_episode_details(episode_number, episode_title, episode_description)
 
@@ -48,12 +49,12 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     speaker_names = speakers.split(",")
     speaker_names = [name.strip().strip("'") for name in speaker_names if name.strip()]
     # Extracted speaker names: ["['Yuval", "Amit']"]
-    print(f"Extracted speaker names: {speaker_names}")
+    logger.info(f"Extracted speaker names: {speaker_names}")
     generate_podcast_episode_audio_from_text(podcast_text, episode_audio_file_path, speaker_names)
     add_pre_and_post_audio(episode_audio_file_path)
     upload_new_podcast_episode(configuration)
 
-    print(f"Completed processing batch {batch_number}")
+    logger.info(f"Completed processing batch {batch_number}")
 
 def process_links(configuration: Configuration, is_single_url_episode: bool, processed_urls: set):
     configuration.set_prompts(is_single_url_episode)
@@ -87,7 +88,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             remaining_urls.append(url)
             remaining_titles.append(title)
 
-    print(f"Found {len(remaining_urls)} URLs to check for content...")
+    logger.info(f"Found {len(remaining_urls)} URLs to check for content...")
 
     # Create lists to store filtered URLs, titles, and content
     filtered_urls = []
@@ -96,7 +97,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
 
     for url, title in zip(remaining_urls, remaining_titles):
         # Try to extract content from the URL
-        print(f"Extracting content from {url}...")
+        logger.info(f"Extracting content from {url}...")
         md_content, status_code = get_markdown_from_url(url)
 
         # Only keep URLs with valid content
@@ -105,13 +106,13 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             filtered_titles.append(title)
             remaining_content.append(md_content)
         else:
-            print(f"Skipping URL due to failed content extraction: {url}")
+            logger.info(f"Skipping URL due to failed content extraction: {url}")
 
     # Update remaining_urls and remaining_titles to only include those with valid content
     remaining_urls = filtered_urls
     remaining_titles = filtered_titles
 
-    print(f"Found {len(remaining_urls)} URLs with valid content to process")
+    logger.info(f"Found {len(remaining_urls)} URLs with valid content to process")
 
     # Process unprocessed URLs in batches of <batch_size>
     batch_size = configuration.batch_size
@@ -134,7 +135,7 @@ def main(configuration: Configuration):
         process_links(configuration, False, processed_urls)
 
     except ValueError as e:
-        print(e)
+        logger.error(e)
         traceback.print_exc()
         sys.exit()
 

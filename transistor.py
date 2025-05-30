@@ -2,6 +2,7 @@ import os
 import requests
 import dotenv
 from pathlib import Path as p
+from logger import logger
 
 from config import Configuration
 
@@ -19,21 +20,21 @@ def authorize_audio_upload(audio_file_path):
     upload_url = result["data"]["attributes"]["upload_url"]
     audio_url = result["data"]["attributes"]["audio_url"]
     content_type = result["data"]["attributes"]["content_type"]
-    print("Presigned upload URL:", upload_url)
-    print("Resulting audio URL (for episode):", audio_url)
-    print("Content-Type:", content_type)
+    logger.info(f"Presigned upload URL: {upload_url}")
+    logger.info(f"Resulting audio URL (for episode): {audio_url}")
+    logger.info(f"Content-Type: {content_type}")
     return upload_url, audio_url, content_type
 
 def upload_audio_file(upload_url, audio_file_path, content_type):
-    print("Uploading audio file to presigned URL...")
+    logger.info("Uploading audio file to presigned URL...")
     with open(audio_file_path, 'rb') as f:
         audio_data = f.read()
     headers = {"Content-Type": content_type}
     response = requests.put(upload_url, data=audio_data, headers=headers, verify=False)
-    print("Upload status:", response.status_code)
-    print("Upload response:", response.text)
+    logger.info(f"Upload status: {response.status_code}")
+    logger.info(f"Upload response: {response.text}")
     response.raise_for_status()
-    print("Audio uploaded successfully.")
+    logger.info("Audio uploaded successfully.")
 
 def create_episode_with_audio(season, episode, title, description, audio_url, show_id):
     url = "https://api.transistor.fm/v1/episodes"
@@ -49,11 +50,11 @@ def create_episode_with_audio(season, episode, title, description, audio_url, sh
         'episode[audio_url]': audio_url,
     }
     response = requests.post(url, headers=headers, data=data, verify=False)
-    print("Episode creation status:", response.status_code)
-    print("Episode creation response:", response.text)
+    logger.info(f"Episode creation status: {response.status_code}")
+    logger.info(f"Episode creation response: {response.text}")
     response.raise_for_status()
     episode = response.json()
-    print("Episode created with ID:", episode["data"]["id"])
+    logger.info(f"Episode created with ID: {episode['data']['id']}")
     return episode
 
 def upload_episode_to_transistor(configuration: Configuration):
@@ -77,6 +78,7 @@ if __name__ == "__main__":
     season = "1"
     episode_title = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_7", "episode_name.txt"))
     episode_desc = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_7", "episode_desc.txt"))
-    configuration.set_episode_details("7", episode_title, episode_desc )
+    configuration.set_episode_details("7", episode_title, episode_desc)
     configuration.episode_audio_filename = audio_file_path
     upload_episode_to_transistor(configuration)
+

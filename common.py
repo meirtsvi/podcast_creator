@@ -11,6 +11,7 @@ from transistor import upload_episode_to_transistor
 
 from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 from url_to_md import get_markdown_from_url
+from logger import logger
 
 
 def call_genai_api(prompt):
@@ -25,10 +26,10 @@ def call_genai_api(prompt):
             break  # Success, exit the loop
         except Exception as e:
             if attempt < max_retries - 1:  # If not the last attempt
-                print(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in 10 seconds...")
+                logger.error(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in 10 seconds...")
                 time.sleep(10)  # Wait for 10 seconds before retrying
             else:
-                print(f"All {max_retries} attempts failed. Last error: {str(e)}")
+                logger.error(f"All {max_retries} attempts failed. Last error: {str(e)}")
                 raise  # Re-raise the last exception if all retries failed
 
     ret = response.text.strip()
@@ -78,7 +79,7 @@ def create_source_list(source_type, batch_size=10) -> list:
         if not urls:
             raise ValueError(f"Error: {source_type}_links.csv does not contain any records.")
 
-        print(f"Found {len(urls)} batches of URLs to process.\n")
+        logger.info(f"Found {len(urls)} batches of URLs to process.\n")
         return urls
 
 def get_processed_urls(configuration: Configuration) -> set:
@@ -93,9 +94,9 @@ def get_processed_urls(configuration: Configuration) -> set:
                 urls = [line.strip() for line in f if line.strip()]
                 processed_urls.update(urls)
         except Exception as e:
-            print(f"Error reading {url_file}: {str(e)}")
+            logger.error(f"Error reading {url_file}: {str(e)}")
 
-    print(f"Found {len(processed_urls)} processed URLs")
+    logger.info(f"Found {len(processed_urls)} processed URLs")
     return processed_urls
 
 def get_next_episode_number(configuration: Configuration) -> int:
@@ -133,15 +134,15 @@ def create_episode_folder(configuration: Configuration):
     with open(desc_file, 'w', encoding="utf-8") as f:
         f.write(configuration.episode_description)
     
-    print(f"Created episode folder {episode_dir} with {len(configuration.episode_urls)} URLs")
+    logger.info(f"Created episode folder {episode_dir} with {len(configuration.episode_urls)} URLs")
     return previous_summaries_file_path
 
 def upload_new_podcast_episode(configuration: Configuration):
     episode_folder = configuration.episode_folder
-    print(f"Uploading new podcast episode from {str(episode_folder)}...")
+    logger.info(f"Uploading new podcast episode from {str(episode_folder)}...")
     if not configuration.transistor_show_id == "0":
         upload_episode_to_transistor(configuration)
-    print(f"Uploaded new podcast episode {configuration.episode_title} to Transistor.")
+    logger.info(f"Uploaded new podcast episode {configuration.episode_number} to Transistor.fm")
 
 def generate_title_from_url(url):
     try:

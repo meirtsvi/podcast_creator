@@ -1,7 +1,8 @@
 from pydub import AudioSegment
+from logger import logger
 
 def add_pre_and_post_audio(podcast_mp3_path):
-    print("Adding pre and post audio to podcast...")
+    logger.info("Adding pre and post audio to podcast...")
     # Load MP3 files
     pre = AudioSegment.from_file("pre_and_post.mp3")
     post = AudioSegment.from_file(podcast_mp3_path)
