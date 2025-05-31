@@ -41,14 +41,19 @@ def generate_podcast_text(configuration: Configuration):
         response_mime_type="text/plain",
     )
 
+    num_chunks = 0
     ret = ""
     for chunk in client.models.generate_content_stream(
         model=model,
         contents=contents,
         config=generate_content_config,
     ):
-        ret += chunk.text
+        num_chunks += 1
+        if chunk and chunk.text:
+            ret += chunk.text
+        else:
+            logger.warning("Received empty chunk from the model, skipping.")
 
-    logger.info(f"Created podcast text: {ret[:100]}... (length: {len(ret)})")
+    logger.info(f"Created podcast text from {num_chunks}: {ret[:100]}... (length: {len(ret)})")
     return ret
 
