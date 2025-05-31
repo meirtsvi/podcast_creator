@@ -54,6 +54,6 @@ def generate_podcast_text(configuration: Configuration):
         else:
             logger.warning("Received empty chunk from the model, skipping.")
 
-    logger.info(f"Created podcast text from {num_chunks}: {ret[:100]}... (length: {len(ret)})")
+    logger.info(f"Created podcast text from {num_chunks} chunks: {ret[:100]}... (length: {len(ret)})")
     return ret
 
