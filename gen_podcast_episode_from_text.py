@@ -126,30 +126,35 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
                 raise  # Re-raise the last error
 
+def split_text_into_chunks(text, max_chars_per_chunk=4000):
+    SEPARATOR = "\n"
+    """Splits text into chunks, trying to respect sentence boundaries."""
+    chunks = []
+    current_chunk = ""
+    sentences = text.split(SEPARATOR) # Simple split, can be improved with smarter tokenization
+
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) + 1 <= max_chars_per_chunk: # +1 for SEPARATOR
+            current_chunk += sentence + SEPARATOR
+        else:
+            if current_chunk: # Add previous chunk if not empty
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence + SEPARATOR
+    if current_chunk: # Add the last chunk
+        chunks.append(current_chunk.strip())
+    return chunks
+
 def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names):
     logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
-    
-    # Split text into lines and filter out empty lines
-    lines = [line.strip() for line in podcast_text.split('\n') if line.strip()]
-    
     # List to store generated WAV files
     generated_files = []
 
-    NO_LINES_TO_PROCESS=3
-
-    # Remove empty lines
-    lines = [line for line in lines if line.strip()]
-
-    # Process NO_LINES_TO_PROCESS lines at a time
-    for i in range(0, len(lines), NO_LINES_TO_PROCESS):
-        # Get next NO_LINES_TO_PROCESS lines (or remaining lines if less than NO_LINES_TO_PROCESS)
-        chunk_lines = lines[i:i+NO_LINES_TO_PROCESS]
-        # Join the lines with newlines
-        chunk_text = '\n'.join(chunk_lines)
+    podcast_text = re.sub(r'\n+', '\n', podcast_text).strip()  # Remove extra newlines
+    chunks = split_text_into_chunks(podcast_text)
+    for i,chunk_text in enumerate(chunks):
         logger.info(chunk_text)
-
         contents = [
             types.Content(
                 role="user",
@@ -160,7 +165,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
         ]
         
         generate_content_config = types.GenerateContentConfig(
-            temperature=1.0,
+            # temperature=1.0,
             response_modalities=[
                 "audio",
             ],
@@ -203,7 +208,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 ):
                     continue
                 if chunk.candidates[0].content.parts[0].inline_data:
-                    file_name = f"output_{i//NO_LINES_TO_PROCESS}"  # Use chunk index for file naming
+                    file_name = f"output_{i}"  # Use chunk index for file naming
                     inline_data = chunk.candidates[0].content.parts[0].inline_data
                     data_buffer = inline_data.data
                     file_extension = mimetypes.guess_extension(inline_data.mime_type)
@@ -216,7 +221,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 else:
                     logger.info(chunk.text)
         except Exception as e:
-            logger.error(f"Failed to generate audio for chunk {i//NO_LINES_TO_PROCESS}: {e}")
+            logger.error(f"Failed to generate audio for chunk {i}: {e}")
             raise e
 
     # Merge all generated WAV files
@@ -307,11 +312,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\src\debug\podcast_text.txt", "r", encoding="utf-8") as f:
+    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_68\podcast_text.txt ", "r", encoding='utf-8') as f:
     # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\temp\temp2.mp3"
-    speaker_names = ["יובל", "עמית"]
+    episode_file_path = r"c:\temp\temp.mp3"
+    speaker_names = ["עמית", "יובל"]
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")
