@@ -80,6 +80,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
         try:
             chunk_count = 0
 
+            # Refresh client with the current API key
             client = genai.Client(
                 api_key=get_current_api_key(),
             )
@@ -155,6 +156,11 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
     chunks = split_text_into_chunks(podcast_text)
     for i,chunk_text in enumerate(chunks):
         logger.info(chunk_text)
+        chunk_text = ("Read the following script as natural-sounding speech. "
+                      "If there are cues in parentheses (like (laughing), (whispering), (angry)),"
+                      " use them to guide HOW you say the lines. "
+                      "Only speak the main lines, but let the cues influence your delivery."
+                      "DO NOT say the words in parentheses out loud.\n\nScript:\n") + chunk_text.strip()
         contents = [
             types.Content(
                 role="user",
@@ -165,7 +171,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
         ]
         
         generate_content_config = types.GenerateContentConfig(
-            # temperature=1.0,
+            temperature=1.0,
             response_modalities=[
                 "audio",
             ],
@@ -238,15 +244,6 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                 logger.error(f"Error removing file {file}: {e}")
 
 def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
-    """Generates a WAV file header for the given audio data and parameters.
-
-    Args:
-        audio_data: The raw audio data as a bytes object.
-        mime_type: Mime type of the audio data.
-
-    Returns:
-        A bytes object representing the WAV file header.
-    """
     parameters = parse_audio_mime_type(mime_type)
     bits_per_sample = parameters["bits_per_sample"]
     sample_rate = parameters["rate"]
@@ -312,10 +309,10 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\temp\with_notation.txt", "r", encoding='utf-8') as f:
+    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_75\podcast_text.txt", "r", encoding='utf-8') as f:
     # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\temp\temp_with_notation.mp3"
+    episode_file_path = r"c:\temp\temp.mp3"
     speaker_names = ["יוּבָל","עָמִית"]
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)

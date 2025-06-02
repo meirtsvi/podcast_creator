@@ -11,6 +11,7 @@ Make speakers react to what the other person is saying using phrases like, "Oh?"
 Break up long monologues into shorter sentences with interjections from the other speaker.
 Make speakers sometimes complete each other\'s sentences.
 Include natural speech elements (filler words, feedback responses)
+Each line should start with with {man_speaker} or {woman_speaker}.
 {podcast_tone}.
 
 [INTERNAL USE ONLY - Do not include in output]
