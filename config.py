@@ -47,10 +47,10 @@ class Configuration:
         self.season_number = 1
         if language == "hebrew":
             self.transistor_show_id = "64672"
-            self.man_speaker_name = "יובל"
-            self.woman_speaker_name = "עמית"
-            self.podcast_tone = "הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי."
-            self.podcast_name = "עדכוני טכנולוגיה"
+            self.man_speaker_name = "יוּבָל"
+            self.woman_speaker_name = "עָמִית"
+            self.podcast_tone = " ייצר קצב דיבור כמו בפודקאסט אמיתי."
+            self.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
             self.text_direction = "right-to-left"
         elif language == "english":
             self.transistor_show_id = "64687"

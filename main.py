@@ -43,8 +43,6 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     episode_audio_file_path = episode_dir / configuration.episode_audio_filename
 
     podcast_text = generate_podcast_text(configuration)
-    with open(episode_dir / "podcast_text.txt", "w", encoding="utf-8") as f:
-        f.write(podcast_text)
     speaker_names = [configuration.man_speaker_name, configuration.woman_speaker_name]
     logger.info(f"Extracted speaker names: {speaker_names}")
     generate_podcast_episode_audio_from_text(podcast_text, episode_audio_file_path, speaker_names)

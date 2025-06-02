@@ -312,11 +312,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_68\podcast_text.txt ", "r", encoding='utf-8') as f:
+    with open(r"c:\temp\with_notation.txt", "r", encoding='utf-8') as f:
     # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\temp\temp.mp3"
-    speaker_names = ["עמית", "יובל"]
+    episode_file_path = r"c:\temp\temp_with_notation.mp3"
+    speaker_names = ["יוּבָל","עָמִית"]
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")
