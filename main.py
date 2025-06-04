@@ -138,6 +138,7 @@ if __name__ == "__main__":
     os.environ["PYTHONHTTPSVERIFY"] = "0"
     langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
     for lang in langs.split(","):
+        print(f"Processing language: {lang}")
         configuration = Configuration(lang)
         main(configuration)
     # add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3")

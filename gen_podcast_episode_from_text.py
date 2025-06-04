@@ -171,7 +171,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
         ]
         
         generate_content_config = types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=0.5,
             response_modalities=[
                 "audio",
             ],
@@ -182,16 +182,18 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                             speaker=speaker_names[0],
                             voice_config=types.VoiceConfig(
                                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    voice_name="Charon"
-                                )
+                                    #voice_name="Charon",
+                                    voice_name="Puck",
+                               ),
                             ),
                         ),
                         types.SpeakerVoiceConfig(
                             speaker=speaker_names[1],
                             voice_config=types.VoiceConfig(
                                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    voice_name="Zephyr"
-                                )
+                                    #voice_name="Zephyr",
+                                    voice_name="Kore",
+                                ),
                             ),
                         ),
                     ]
@@ -309,7 +311,7 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_75\podcast_text.txt", "r", encoding='utf-8') as f:
+    with open(r"c:\temp\nopunct.txt", "r", encoding='utf-8') as f:
     # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
         podcast_text = f.read()
     episode_file_path = r"c:\temp\temp.mp3"

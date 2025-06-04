@@ -39,7 +39,7 @@ def create_episode_title(configuration: Configuration, titles: [], episode_numbe
     prompt = configuration.prompt_for_episode_title_generation
     prompt += "\n".join(titles)
     title = "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
-    final_title = call_genai_api("Translate this title to " + configuration.output_language + " language: " + title + ". Provide only the translation without any additional text as a plain text. no newlines.")
+    final_title = call_genai_api("Translate to " + configuration.output_language + ": " + title + ". Provide only the translation without any additional text as a plain text. no newlines.")
     return final_title
 
 def create_episode_description(configuration: Configuration, urls: [], titles: []):
@@ -47,7 +47,7 @@ def create_episode_description(configuration: Configuration, urls: [], titles: [
     url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
     prompt += "\n".join(url_title_pairs)
     desc = call_genai_api(prompt)
-    final_desc = call_genai_api("Translate this text to " + configuration.output_language + " language: " + desc + ". Provide only the translation and links without any additional text. Keep html format.")
+    final_desc = call_genai_api("Translate to " + configuration.output_language + ": " + desc + ". Provide only the translation and links without any additional text. Keep html format.")
     return final_desc
 
 def create_source_list(source_type, batch_size=10) -> list:

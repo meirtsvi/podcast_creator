@@ -1,4 +1,5 @@
 import os
+import re
 
 import dotenv
 from google import genai
@@ -21,6 +22,8 @@ def generate_podcast_text(configuration: Configuration):
     if configuration.output_language == "hebrew":
         lang_output_prompt += "כתוב את הטקסט בכתיב מלא."
     input = f"This is episode {configuration.episode_number}.\n\n{prompt}.\n\n{lang_output_prompt}.{prompt_suffix}"
+    with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
+        f.write(input)
 
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
@@ -58,9 +61,15 @@ def generate_podcast_text(configuration: Configuration):
         else:
             logger.warning("Received empty chunk from the model, skipping.")
 
-    podcast_text = podcast_text.strip().replace("**", "")
     if podcast_text.startswith("("):
         podcast_text = podcast_text.split("\n", 1)[1].strip()
+    podcast_text = podcast_text.strip().replace("**", "")
+    podcast_text = podcast_text.replace(" איתי " , " אִתִּי ")
+    podcast_text = podcast_text.replace(" כל "," כּוֹל ")
+    podcast_text = podcast_text.replace("עדכוני טכנולוגיה", configuration.podcast_name)
+    podcast_text = re.sub("<[^>]+>", "", podcast_text)  # Remove HTML tags
+    if not podcast_text.startswith(configuration.man_speaker_name):
+        podcast_text = configuration.man_speaker_name + ": " + podcast_text
 
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)

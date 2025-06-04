@@ -1,1 +1,3 @@
-Print the article title you received, and then put the link to the title as you received it. **Do not** return an introduction such as “here is the summary” or any other addition—only the title, a blank line, and then the link to the title. Format all the text as HTML.
+Print the article title you received, and then put the link to the title as you received it.
+ **Do not** return an introduction such as “here is the summary” or any other addition—only the title, a blank line, and then the link to the title.
+ Format all the text as HTML.
