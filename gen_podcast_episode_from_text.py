@@ -8,6 +8,8 @@ from google.genai import types
 import dotenv
 import wave
 from google.genai.errors import ServerError
+
+from audio import detect_silence_in_wav
 from logger import logger
 
 dotenv.load_dotenv()
@@ -226,6 +228,9 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                         data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
                     output_file = f"{file_name}{file_extension}"
                     save_binary_file(output_file, data_buffer)
+                    if detect_silence_in_wav(output_file):
+                        logger.error(f"Silence detected in generated audio for chunk {i}, in {output_file}. Aborting")
+                        raise ValueError(f"Silence detected in generated audio for chunk {i}, in {output_file}. Aborting")
                     generated_files.append(output_file)
                 else:
                     logger.info(chunk.text)
@@ -322,5 +327,9 @@ def main():
     logger.info("Podcast episode generation completed.")
 
 if __name__ == "__main__":
+    logger.info("Starting main function...")
+    #has_silence = detect_silence_in_wav(r"c:\temp\Episode_76\Episode_76.mp3")
+    #has_silence = detect_silence_in_wav(r"c:\src\podcast_creator\output_1 - Copy.wav")
+    #logger.info(f"Silence detected in audio: {has_silence}")
     main()
 

@@ -66,9 +66,11 @@ def generate_podcast_text(configuration: Configuration):
     podcast_text = podcast_text.strip().replace("**", "")
     podcast_text = podcast_text.replace(" איתי " , " אִתִּי ")
     podcast_text = podcast_text.replace(" כל "," כּוֹל ")
+    podcast_text = podcast_text.replace('ארה"ב',  'ארצות הברית')
     podcast_text = podcast_text.replace("עדכוני טכנולוגיה", configuration.podcast_name)
     podcast_text = re.sub("<[^>]+>", "", podcast_text)  # Remove HTML tags
-    if not podcast_text.startswith(configuration.man_speaker_name):
+    if not podcast_text.startswith(configuration.man_speaker_name) and \
+       not podcast_text.startswith(configuration.woman_speaker_name):
         podcast_text = configuration.man_speaker_name + ": " + podcast_text
 
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:

@@ -9,7 +9,7 @@ from common import (
 )
 
 from config import Configuration, EPISODE_URLS_FILENAME
-from mp3 import add_pre_and_post_audio
+from audio import add_pre_and_post_audio
 from gen_podcast_text import generate_podcast_text
 from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
 from url_to_md import get_markdown_from_url
@@ -119,7 +119,12 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
         configuration.set_episode_urls(urls)
         configuration.set_episode_titles(titles)
         configuration.set_episode_contents(contents)
-        process_batch(configuration, batch_number, next_episode_number + batch_number - 1)
+        try:
+            process_batch(configuration, batch_number, next_episode_number + batch_number - 1)
+        except Exception as e:
+            logger.error(f"Error processing batch {batch_number}: {e}")
+            traceback.print_exc()
+            continue
 
 
 def main(configuration: Configuration):
@@ -138,7 +143,7 @@ if __name__ == "__main__":
     os.environ["PYTHONHTTPSVERIFY"] = "0"
     langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
     for lang in langs.split(","):
-        print(f"Processing language: {lang}")
+        logger.info(f"Processing language: {lang}")
         configuration = Configuration(lang)
         main(configuration)
     # add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3")

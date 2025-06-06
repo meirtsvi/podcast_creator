@@ -1,5 +1,6 @@
 from pydub import AudioSegment
 from logger import logger
+from pydub import AudioSegment, silence
 
 def add_pre_and_post_audio(podcast_mp3_path):
     logger.info("Adding pre and post audio to podcast...")
@@ -30,3 +31,20 @@ def add_pre_and_post_audio(podcast_mp3_path):
 
     # Export
     final_audio.export(podcast_mp3_path, format="mp3")
+
+
+def detect_silence_in_wav(wav_file_path):
+    # Load the WAV file
+    audio = AudioSegment.from_wav(wav_file_path)
+
+    # Detect silences longer than 5 seconds (5000 ms)
+    # silence_thresh: threshold in dBFS below which is considered silence (typical is audio.dBFS - 16)
+    # min_silence_len: minimum length of a silence to be considered, in ms
+    silent_sections = silence.detect_silence(
+        audio,
+        min_silence_len=5000,
+        silence_thresh=audio.dBFS - 16,
+        seek_step=100  # Default is 1 ms; try 50-200 ms for speedup, with some accuracy loss
+    )
+
+    return len(silent_sections) > 0  # Return True if any silence detected, else False
