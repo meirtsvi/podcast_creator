@@ -19,20 +19,22 @@ def call_genai_api(prompt):
     max_retries = 3
     for attempt in range(max_retries):
         try:
+            logger.info(f"Calling GenAI API with prompt: {prompt}")
             response = client.models.generate_content(
                 #model="gemini-2.0-flash", contents=prompt
                model="gemini-2.5-pro-preview-06-05", contents=prompt
             )
-            ret = response.text.strip()
+            ret = response.text
             break  # Success, exit the loop
         except Exception as e:
             if attempt < max_retries - 1:  # If not the last attempt
-                logger.error(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in 10 seconds...")
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in 10 seconds...")
                 time.sleep(10)  # Wait for 10 seconds before retrying
             else:
                 logger.error(f"All {max_retries} attempts failed. Last error: {str(e)}")
                 raise  # Re-raise the last exception if all retries failed
 
+    logger.info(f"GenAI API returned: {ret}")
     ret = response.text.strip()
     return ret
 
@@ -40,7 +42,10 @@ def create_episode_title(configuration: Configuration, titles: [], episode_numbe
     prompt = configuration.prompt_for_episode_title_generation
     prompt += "\n".join(titles)
     title = "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
-    final_title = call_genai_api("Translate to " + configuration.output_language + ": " + title + ". Provide only the translation without any additional text as a plain text. no newlines.")
+    final_title = call_genai_api(f"Translate the following to {configuration.output_language}: "
+                                 f"'{title}'."
+                                 "Provide only the translated text without any additional text."
+                                 "Keep as a plain text. no newlines.")
     return final_title
 
 def create_episode_description(configuration: Configuration, urls: [], titles: []):
@@ -48,7 +53,10 @@ def create_episode_description(configuration: Configuration, urls: [], titles: [
     url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
     prompt += "\n".join(url_title_pairs)
     desc = call_genai_api(prompt)
-    final_desc = call_genai_api("Translate to " + configuration.output_language + ": " + desc + ". Provide only the translation and links without any additional text. Keep html format.")
+    final_desc = call_genai_api(f"Translate the following text to {configuration.output_language}: "
+                                f": '{desc}'."
+                                f"Provide only the translated text and links without any additional text."
+                                f"Keep html format. Each link in a separate line.")
     return final_desc
 
 def create_source_list(source_type, batch_size=10) -> list:

@@ -6,3 +6,6 @@ state.json
 spotify_state.json
 test*
 sources/**
+
+*.log
+*.wav
