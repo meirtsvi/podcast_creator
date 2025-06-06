@@ -14,9 +14,9 @@ dotenv.load_dotenv()
 
 # Define available API keys and tracking variables
 GEMINI_API_KEYS = [
+    os.environ.get("GEMINI_API_KEY_IAC"),
     os.environ.get("GEMINI_API_KEY_WORK"),
     os.environ.get("GEMINI_API_KEY_VAZAZON"),
-    os.environ.get("GEMINI_API_KEY_IAC"),
     os.environ.get("GEMINI_API_KEY_PERSONAL"),
 ]
 # Remove None values in case any environment variables aren't set
@@ -149,6 +149,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
     logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
+    #model = "gemini-2.5-pro-preview-tts"
     # List to store generated WAV files
     generated_files = []
 

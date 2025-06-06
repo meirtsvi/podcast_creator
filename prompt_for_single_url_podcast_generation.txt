@@ -12,7 +12,7 @@ Break up long monologues into shorter sentences with interjections from the othe
 Make speakers sometimes complete each other\'s sentences.
 Include natural speech elements (filler words, feedback responses)
 Each line should start with with {man_speaker} or {woman_speaker}.
-Keep {male_speaker} speak in male voice and {woman_speaker} speak in female voice.
+Keep {man_speaker} speak in male voice and {woman_speaker} speak in female voice.
 {podcast_tone}.
 
 [INTERNAL USE ONLY - Do not include in output]

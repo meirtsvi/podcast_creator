@@ -20,7 +20,8 @@ def call_genai_api(prompt):
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt
+                #model="gemini-2.0-flash", contents=prompt
+               model="gemini-2.5-pro-preview-06-05", contents=prompt
             )
             ret = response.text.strip()
             break  # Success, exit the loop
