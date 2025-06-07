@@ -45,7 +45,7 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     podcast_text = generate_podcast_text(configuration)
     speaker_names = [configuration.man_speaker_name, configuration.woman_speaker_name]
     logger.info(f"Extracted speaker names: {speaker_names}")
-    generate_podcast_episode_audio_from_text(podcast_text, episode_audio_file_path, speaker_names)
+    generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_audio_file_path, speaker_names)
     add_pre_and_post_audio(episode_audio_file_path)
     upload_new_podcast_episode(configuration)
 
@@ -141,7 +141,7 @@ def main(configuration: Configuration):
 
 if __name__ == "__main__":
     os.environ["PYTHONHTTPSVERIFY"] = "0"
-    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
+    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew" #,english,russian"
     for lang in langs.split(","):
         logger.info(f"Processing language: {lang}")
         configuration = Configuration(lang)

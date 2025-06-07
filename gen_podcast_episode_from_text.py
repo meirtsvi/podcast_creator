@@ -147,7 +147,7 @@ def split_text_into_chunks(text, max_chars_per_chunk=4000):
         chunks.append(current_chunk.strip())
     return chunks
 
-def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names):
+def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names):
     logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
@@ -226,7 +226,7 @@ def generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, sp
                     if file_extension is None:
                         file_extension = ".wav"
                         data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
-                    output_file = f"{file_name}{file_extension}"
+                    output_file = episode_dir / f"{file_name}{file_extension}"
                     save_binary_file(output_file, data_buffer)
                     if detect_silence_in_wav(output_file):
                         logger.error(f"Silence detected in generated audio for chunk {i}, in {output_file}. Aborting")
