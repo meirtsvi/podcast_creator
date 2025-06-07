@@ -49,7 +49,7 @@ def merge_wav_files(input_files, output_file):
         output_file: Path to the output WAV file
     """
     # Get parameters from first file
-    with wave.open(input_files[0], 'rb') as first_file:
+    with wave.open(str(input_files[0]), 'rb') as first_file:
         params = first_file.getparams()
     
     # Create output file
@@ -58,7 +58,7 @@ def merge_wav_files(input_files, output_file):
         
         # Write data from each input file
         for input_file in input_files:
-            with wave.open(input_file, 'rb') as w:
+            with wave.open(str(input_file), 'rb') as w:
                 output.writeframes(w.readframes(w.getnframes()))
 
 def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1):
@@ -204,39 +204,58 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
             ),
         )
 
-        try:
-            for chunk in generate_with_retry(
-                model=model,
-                contents=contents,
-                config=generate_content_config,
-                max_retries=len(GEMINI_API_KEYS),
-                initial_delay=10
-            ):
-                if (
-                    chunk.candidates is None
-                    or chunk.candidates[0].content is None
-                    or chunk.candidates[0].content.parts is None
+        max_silence_retries = 3
+        silence_retry_count = 0
+        success = False
+        while silence_retry_count < max_silence_retries and not success:
+            try:
+                chunk_found = False
+                for chunk in generate_with_retry(
+                    model=model,
+                    contents=contents,
+                    config=generate_content_config,
+                    max_retries=len(GEMINI_API_KEYS),
+                    initial_delay=10
                 ):
-                    continue
-                if chunk.candidates[0].content.parts[0].inline_data:
-                    file_name = f"output_{i}"  # Use chunk index for file naming
-                    inline_data = chunk.candidates[0].content.parts[0].inline_data
-                    data_buffer = inline_data.data
-                    file_extension = mimetypes.guess_extension(inline_data.mime_type)
-                    if file_extension is None:
-                        file_extension = ".wav"
-                        data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
-                    output_file = episode_dir / f"{file_name}{file_extension}"
-                    save_binary_file(output_file, data_buffer)
-                    if detect_silence_in_wav(output_file):
-                        logger.error(f"Silence detected in generated audio for chunk {i}, in {output_file}. Aborting")
-                        raise ValueError(f"Silence detected in generated audio for chunk {i}, in {output_file}. Aborting")
-                    generated_files.append(output_file)
-                else:
-                    logger.info(chunk.text)
-        except Exception as e:
-            logger.error(f"Failed to generate audio for chunk {i}: {e}")
-            raise e
+                    if (
+                        chunk.candidates is None
+                        or chunk.candidates[0].content is None
+                        or chunk.candidates[0].content.parts is None
+                    ):
+                        continue
+                    if chunk.candidates[0].content.parts[0].inline_data:
+                        chunk_found = True
+                        file_name = f"output_{i}"
+                        inline_data = chunk.candidates[0].content.parts[0].inline_data
+                        data_buffer = inline_data.data
+                        file_extension = mimetypes.guess_extension(inline_data.mime_type)
+                        if file_extension is None:
+                            file_extension = ".wav"
+                            data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
+                        output_file = episode_dir / f"{file_name}{file_extension}"
+                        save_binary_file(output_file, data_buffer)
+                        if detect_silence_in_wav(output_file):
+                            os.replace(output_file, output_file.with_suffix('.silent.wav'))
+                            silence_retry_count += 1
+                            logger.error(f"Silence detected in generated audio for chunk {i}, in {output_file}. Retrying ({silence_retry_count}/{max_silence_retries})...")
+                            if silence_retry_count >= max_silence_retries:
+                                raise ValueError(f"Silence detected in generated audio for chunk {i}, in {output_file} after {max_silence_retries} attempts. Aborting.")
+                            break  # Break out of for loop to retry the API call
+                        generated_files.append(output_file)
+                        success = True
+                        break  # Success, exit the for loop and while loop
+                    else:
+                        logger.info(chunk.text)
+                if not chunk_found:
+                    silence_retry_count += 1
+                    logger.error(f"No valid audio data returned for chunk {i}. Retrying ({silence_retry_count}/{max_silence_retries})...")
+                # If success is True, while loop will exit
+            except Exception as e:
+                logger.error(f"Failed to generate audio for chunk {i}: {e}")
+                raise e
+        if not success:
+            logger.error(f"Failed to generate non-silent audio for chunk {i} after {max_silence_retries} attempts.")
+            raise ValueError(f"Failed to generate non-silent audio for chunk {i} after {max_silence_retries} attempts.")
 
     # Merge all generated WAV files
     if generated_files:
@@ -327,9 +346,9 @@ def main():
     logger.info("Podcast episode generation completed.")
 
 if __name__ == "__main__":
+    os.replace(r"c:\temp\1.txt", r"c:\temp\abcde.txt")
     logger.info("Starting main function...")
     #has_silence = detect_silence_in_wav(r"c:\temp\Episode_76\Episode_76.mp3")
     #has_silence = detect_silence_in_wav(r"c:\src\podcast_creator\output_1 - Copy.wav")
     #logger.info(f"Silence detected in audio: {has_silence}")
     main()
-
