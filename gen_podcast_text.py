@@ -70,6 +70,7 @@ def generate_podcast_text(configuration: Configuration):
     podcast_text = podcast_text.replace("עדכוני טכנולוגיה", configuration.podcast_name)
     podcast_text = podcast_text.replace("יוּבָב:", f"{configuration.man_speaker_name}:")
     podcast_text = re.sub("<[^>]+>", "", podcast_text)  # Remove HTML tags
+    podcast_text = podcast_text.replace("(Outro music begins)", "")
     if not podcast_text.startswith(configuration.man_speaker_name) and \
        not podcast_text.startswith(configuration.woman_speaker_name):
         podcast_text = configuration.man_speaker_name + ": " + podcast_text

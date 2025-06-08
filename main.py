@@ -141,7 +141,7 @@ def main(configuration: Configuration):
 
 if __name__ == "__main__":
     os.environ["PYTHONHTTPSVERIFY"] = "0"
-    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew" #,english,russian"
+    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
     for lang in langs.split(","):
         logger.info(f"Processing language: {lang}")
         configuration = Configuration(lang)

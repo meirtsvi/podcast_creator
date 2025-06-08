@@ -72,13 +72,13 @@ def read_text_from_file(file_path):
         return file.read().strip()
 if __name__ == "__main__":
     configuration = Configuration("russian")
-    AUDIO_FILE_PATH = r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_7\Episode_7.mp3"
+    AUDIO_FILE_PATH = r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45\Episode_45.mp3"
     audio_file_path = os.path.basename(AUDIO_FILE_PATH)
-    episiode_number = "7"
+    episiode_number = "45"
     season = "1"
-    episode_title = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_7", "episode_name.txt"))
-    episode_desc = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_7", "episode_desc.txt"))
-    configuration.set_episode_details("7", episode_title, episode_desc)
+    episode_title = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_name.txt"))
+    episode_desc = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_desc.txt"))
+    configuration.set_episode_details("45", episode_title, episode_desc)
     configuration.episode_audio_filename = audio_file_path
     upload_episode_to_transistor(configuration)
 
