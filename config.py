@@ -49,23 +49,35 @@ class Configuration:
             self.transistor_show_id = "64672"
             self.man_speaker_name = "יוּבָל"
             self.woman_speaker_name = "עָמִית"
-            self.podcast_tone = " ייצר קצב דיבור כמו בפודקאסט אמיתי."
             self.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
             self.text_direction = "right-to-left"
+            self.podcast_tone = """
+               ייצר קצב דיבור כמו בפודקאסט אמיתי.
+               Introduce disfluencies to make it sound like a real conversation.
+               Make speakers react to what the other person is saying using phrases like, "Oh?" and "yeah?".
+               Include natural speech elements (filler words, feedback responses).
+               NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
+               """
         elif language == "english":
             self.transistor_show_id = "64687"
             self.man_speaker_name = "Yuval"
             self.woman_speaker_name = "Amit"
-            self.podcast_tone = "הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי."
             self.podcast_name = "Tech Updates"
             self.text_direction = "left-to-right"
+            self.podcast_tone = """
+                הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי
+               Introduce disfluencies to make it sound like a real conversation.
+               Make speakers react to what the other person is saying using phrases like, "Oh?" and "yeah?".
+               Include natural speech elements (filler words, feedback responses).
+               NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
+               """
         elif language == "russian":
             self.transistor_show_id = "64812"
             self.man_speaker_name = "Sasha"
             self.woman_speaker_name = "Zhenia"
-            self.podcast_tone = "Никогда не используй слово 'ну'!"
             self.podcast_name = "Tech Updates"
             self.text_direction = "left-to-right"
+            self.podcast_tone = "Никогда не используй слово 'ну'!"
         else:
             logger.error(f"Cannot set transistor show id for language: {language}")
             exit(1)

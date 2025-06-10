@@ -239,6 +239,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                             silence_retry_count += 1
                             logger.error(f"Silence detected in generated audio for chunk {i}, in {output_file}. Retrying ({silence_retry_count}/{max_silence_retries})...")
                             if silence_retry_count >= max_silence_retries:
+                                time.sleep(30)
                                 raise ValueError(f"Silence detected in generated audio for chunk {i}, in {output_file} after {max_silence_retries} attempts. Aborting.")
                             break  # Break out of for loop to retry the API call
                         generated_files.append(output_file)
