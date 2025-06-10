@@ -63,7 +63,7 @@ class Configuration:
             self.transistor_show_id = "64812"
             self.man_speaker_name = "Sasha"
             self.woman_speaker_name = "Zhenia"
-            self.podcast_tone = "קצב דיבור כמו בפודקאסט אמיתי."
+            self.podcast_tone = "Никогда не используй слово 'ну'!"
             self.podcast_name = "Tech Updates"
             self.text_direction = "left-to-right"
         else:
