@@ -7,12 +7,10 @@ import time
 
 from google import genai
 from bs4 import BeautifulSoup
-from transistor import upload_episode_to_transistor
 
 from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 from url_to_md import get_markdown_from_url
 from logger import logger
-
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -146,13 +144,6 @@ def create_episode_folder(configuration: Configuration):
     logger.info(f"Created episode folder {episode_dir} with {len(configuration.episode_urls)} URLs")
     return previous_summaries_file_path
 
-def upload_new_podcast_episode(configuration: Configuration):
-    episode_folder = configuration.episode_folder
-    logger.info(f"Uploading new podcast episode from {str(episode_folder)}...")
-    if not configuration.transistor_show_id == "0":
-        upload_episode_to_transistor(configuration)
-    logger.info(f"Uploaded new podcast episode {configuration.episode_number} to Transistor.fm")
-
 def generate_title_from_url(url):
     try:
         _, response = get_markdown_from_url(url)
@@ -204,3 +195,17 @@ def create_previous_episodes_summaries(configuration: Configuration):
 
     logger.info(f"Created previous episodes summaries file: {output_file}")
     return output_file
+
+def get_episodes_with_missing_audio(configuration: Configuration) -> list:
+    """Get a list of episodes that have no audio files."""
+    missing_audio_episodes = []
+    podcast_dir = p(configuration.podcast_root_folder)
+    episode_folders = glob.glob(str(podcast_dir / "Episode_*"))
+    for folder in episode_folders:
+        episode_number = folder.split("Episode_")[-1]
+        configuration.set_episode_details(episode_number, "", "")
+        audio_file_path = p(folder) / configuration.episode_audio_filename
+        if not audio_file_path.exists():
+            missing_audio_episodes.append((episode_number, p(folder)))
+
+    return missing_audio_episodes

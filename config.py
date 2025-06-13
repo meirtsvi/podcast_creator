@@ -1,7 +1,9 @@
 import dotenv
 import os
 from pathlib import Path as p
+
 from logger import logger
+from utils import read_file_content
 
 SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
 MULTI_URL_LINKS_FILENAME = "sources/website_multi_links.csv"
@@ -15,6 +17,7 @@ PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION = "prompt_for_multi_urls_podcast_genera
 EPISODE_TITLE_FILENAME = "episode_name.txt"
 EPISODE_DESC_FILENAME = "episode_desc.txt"
 EPISODE_URLS_FILENAME = "urls.txt"
+EPISODE_TEXT = "podcast_text.txt"
 
 dotenv.load_dotenv()
 
@@ -82,22 +85,17 @@ class Configuration:
             logger.error(f"Cannot set transistor show id for language: {language}")
             exit(1)
 
-
-    def read_file_content(self, filename: str) -> str:
-        with open(filename, "r", encoding="utf-8") as file:
-            return file.read().strip()
-
     def set_prompts(self, is_single_url: bool):
         if is_single_url:
-            self.prompt_for_episode_title_generation = self.read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME)
-            self.prompt_for_episode_description_generation = self.read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME)
-            self.prompt_for_podcast_generation = self.read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION)
+            self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME)
+            self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME)
+            self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION)
             self.links_filename = SINGLE_URL_LINKS_FILENAME
             self.batch_size = 1
         else:
-            self.prompt_for_episode_title_generation = self.read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME)
-            self.prompt_for_episode_description_generation = self.read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME)
-            self.prompt_for_podcast_generation = self.read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION)
+            self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME)
+            self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME)
+            self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION)
             self.links_filename = MULTI_URL_LINKS_FILENAME
             self.batch_size = 10
 

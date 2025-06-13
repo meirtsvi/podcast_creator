@@ -1,4 +1,3 @@
-from pydub import AudioSegment
 from logger import logger
 from pydub import AudioSegment, silence
 
@@ -50,10 +49,4 @@ def detect_silence_in_wav(wav_file_path):
     return len(silent_sections) > 0  # Return True if any silence detected, else False
 
 if __name__ == '__main__':
-    # Example usage
-    wav_path = r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_32\output_3.silent.wav"
-    has_silence = detect_silence_in_wav(wav_path)
-    if has_silence:
-        print("Silence detected in the WAV file.")
-    else:
-        print("No silence detected in the WAV file.")
+    add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\Episode_96.mp3")

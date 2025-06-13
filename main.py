@@ -5,13 +5,15 @@ import traceback
 from common import (
     create_episode_title, create_episode_description,
     create_episode_folder, get_processed_urls, get_next_episode_number,
-    upload_new_podcast_episode, generate_title_from_url, call_genai_api
+    generate_title_from_url, get_episodes_with_missing_audio,
 )
 
-from config import Configuration, EPISODE_URLS_FILENAME
+from config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME
 from audio import add_pre_and_post_audio
 from gen_podcast_text import generate_podcast_text
 from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
+from new_ver.transistor import read_text_from_file
+from transistor import upload_new_podcast_episode
 from url_to_md import get_markdown_from_url
 from logger import logger
 
@@ -127,12 +129,33 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             continue
 
 
+def produce_audio_for_missing_audio_episodes(configuration):
+    logger.info(f"Processing missing audio episodes...")
+    episodes_without_audio = get_episodes_with_missing_audio(configuration)
+    for episode in episodes_without_audio:
+        episode_number, episode_folder = episode
+        logger.info(f"Producing audio for episode {episode_number} - {episode_folder}")
+        episode_title = read_text_from_file(episode_folder / EPISODE_TITLE_FILENAME)
+        episode_desc = read_text_from_file(episode_folder /  EPISODE_DESC_FILENAME)
+        podcast_text = read_text_from_file(episode_folder / EPISODE_TEXT)
+        configuration.set_episode_details(episode_number, episode_title, episode_desc)
+        episode_audio_file_path = configuration.episode_folder / configuration.episode_audio_filename
+        generate_podcast_episode_audio_from_text(configuration.episode_folder,
+                                                  podcast_text,
+                                                  episode_audio_file_path,
+                                                  [configuration.man_speaker_name, configuration.woman_speaker_name])
+        add_pre_and_post_audio(episode_audio_file_path)
+        upload_new_podcast_episode(configuration)
+
+
 def main(configuration: Configuration):
     try:
         processed_urls = get_processed_urls(configuration)
 
         process_links(configuration, True, processed_urls)
         process_links(configuration, False, processed_urls)
+
+        produce_audio_for_missing_audio_episodes(configuration)
 
     except ValueError as e:
         logger.error(e)

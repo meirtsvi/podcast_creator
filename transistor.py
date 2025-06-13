@@ -2,13 +2,22 @@ import os
 import requests
 import dotenv
 from pathlib import Path as p
+
 from logger import logger
 
 from config import Configuration
+from utils import read_file_content
 
 dotenv.load_dotenv()
 
 TRANSISTOR_API_KEY = os.getenv("TRANSISTOR_API_KEY")
+
+def upload_new_podcast_episode(configuration: Configuration):
+    episode_folder = configuration.episode_folder
+    logger.info(f"Uploading new podcast episode from {str(episode_folder)}...")
+    if not configuration.transistor_show_id == "0":
+        upload_episode_to_transistor(configuration)
+    logger.info(f"Uploaded new podcast episode {configuration.episode_number} to Transistor.fm")
 
 def authorize_audio_upload(audio_file_path):
     url = "https://api.transistor.fm/v1/episodes/authorize_upload"
@@ -67,17 +76,14 @@ def upload_episode_to_transistor(configuration: Configuration):
     upload_audio_file(upload_url, episode_audio_file_path, content_type)
     create_episode_with_audio(season, episode, title, description, audio_url, configuration.transistor_show_id)
 
-def read_text_from_file(file_path):
-    with open(file_path, "r", encoding="utf-8") as file:
-        return file.read().strip()
 if __name__ == "__main__":
     configuration = Configuration("russian")
     AUDIO_FILE_PATH = r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45\Episode_45.mp3"
     audio_file_path = os.path.basename(AUDIO_FILE_PATH)
     episiode_number = "45"
     season = "1"
-    episode_title = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_name.txt"))
-    episode_desc = read_text_from_file(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_desc.txt"))
+    episode_title = read_file_content(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_name.txt"))
+    episode_desc = read_file_content(os.path.join(r"c:\Users\meir\Dropbox\tech_podcast_russian\Episode_45", "episode_desc.txt"))
     configuration.set_episode_details("45", episode_title, episode_desc)
     configuration.episode_audio_filename = audio_file_path
     upload_episode_to_transistor(configuration)

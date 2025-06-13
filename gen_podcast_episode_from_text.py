@@ -3,6 +3,8 @@ import os
 import re
 import struct
 import time
+from pathlib import Path as p
+
 from google import genai
 from google.genai import types
 import dotenv
@@ -337,19 +339,14 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\temp\nopunct.txt", "r", encoding='utf-8') as f:
-    # with open(r"c:\src\debug\1.txt ", "r", encoding="utf-8") as f:
+    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\podcast_text.txt ", "r", encoding='utf-8') as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\temp\temp.mp3"
+    episode_file_path = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\Episode_96.mp3"
     speaker_names = ["יוּבָל","עָמִית"]
+    episode_dir = p(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96")
     logger.info("Starting podcast episode generation...")
-    generate_podcast_episode_audio_from_text(podcast_text, episode_file_path, speaker_names)
+    generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")
 
 if __name__ == "__main__":
-    os.replace(r"c:\temp\1.txt", r"c:\temp\abcde.txt")
-    logger.info("Starting main function...")
-    #has_silence = detect_silence_in_wav(r"c:\temp\Episode_76\Episode_76.mp3")
-    #has_silence = detect_silence_in_wav(r"c:\src\podcast_creator\output_1 - Copy.wav")
-    #logger.info(f"Silence detected in audio: {has_silence}")
     main()

@@ -1,5 +1,4 @@
 import logging
-import datetime
 import sys
 from colorama import init, Fore, Style
 
