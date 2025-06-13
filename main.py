@@ -2,6 +2,8 @@ import sys
 import os
 import traceback
 
+os.environ["PYTHONHTTPSVERIFY"] = "0"
+
 from common import (
     create_episode_title, create_episode_description,
     create_episode_folder, get_processed_urls, get_next_episode_number,
@@ -118,6 +120,9 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     content_batches = [remaining_content[i:i + batch_size] for i in range(0, len(remaining_content), batch_size)]
 
     for batch_number, (urls, titles, contents) in enumerate(zip(url_batches, title_batches, content_batches), 1):
+        if batch_number > 1 and not is_single_url_episode and len(urls) < batch_size:
+            logger.info(f"Skipping batch {batch_number} as it contains less than {batch_size} URLs")
+            continue
         configuration.set_episode_urls(urls)
         configuration.set_episode_titles(titles)
         configuration.set_episode_contents(contents)
@@ -148,7 +153,7 @@ def produce_audio_for_missing_audio_episodes(configuration):
         upload_new_podcast_episode(configuration)
 
 
-def main(configuration: Configuration):
+def process_one_language(configuration: Configuration):
     try:
         processed_urls = get_processed_urls(configuration)
 
@@ -162,13 +167,17 @@ def main(configuration: Configuration):
         traceback.print_exc()
         sys.exit()
 
-if __name__ == "__main__":
-    os.environ["PYTHONHTTPSVERIFY"] = "0"
-    langs = sys.argv[1] if len(sys.argv) > 1 else "hebrew,english,russian"
+def process_languages(langs):
+    if not langs:
+        langs = "hebrew,english,russian"
     for lang in langs.split(","):
         logger.info(f"Processing language: {lang}")
         configuration = Configuration(lang)
-        main(configuration)
+        process_one_language(configuration)
+
+if __name__ == "__main__":
+    langs = sys.argv[1] if len(sys.argv) > 1 else None
+    process_languages(langs)
     # add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5\Episode_5.mp3")
     # configuration = Configuration("english")
     # configuration.episode_folder = r"c:\Users\meir\Dropbox\tech_podcast_english\Episode_5"
