@@ -54,12 +54,12 @@ class HNFileChangeHandler(FileSystemEventHandler):
                     os.makedirs(os.path.dirname(SINGLE_URL_LINKS_FILENAME), exist_ok=True)
                     os.makedirs(os.path.dirname(MULTI_URL_LINKS_FILENAME), exist_ok=True)
 
-                    with open(MULTI_URL_LINKS_FILENAME, 'w', encoding='utf-8') as f:
+                    with open(MULTI_URL_LINKS_FILENAME, 'a', encoding='utf-8') as f:
                         for url in podcast1_urls:
                             f.write(f"{url}\n")
                     print(f"Wrote {len(podcast1_urls)} URLs to {MULTI_URL_LINKS_FILENAME}")
 
-                    with open(SINGLE_URL_LINKS_FILENAME, 'w', encoding='utf-8') as f:
+                    with open(SINGLE_URL_LINKS_FILENAME, 'a', encoding='utf-8') as f:
                         for url in podcast2_urls:
                             f.write(f"{url}\n")
                     print(f"Wrote {len(podcast2_urls)} URLs to {SINGLE_URL_LINKS_FILENAME}")
