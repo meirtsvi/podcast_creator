@@ -5,8 +5,10 @@ from pathlib import Path as p
 from logger import logger
 from utils import read_file_content
 
-SINGLE_URL_LINKS_FILENAME = "sources/website_single_links.csv"
-MULTI_URL_LINKS_FILENAME = "sources/website_multi_links.csv"
+dotenv.load_dotenv()
+
+SINGLE_URL_LINKS_FILEPATH = os.environ.get("SINGLE_LINKS_FILEPATH")
+MULTI_URL_LINKS_FILEPATH = os.environ.get("MULTI_LINKS_FILEPATH")
 PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME = "prompt_for_single_url_podcast_episode_name.txt"
 PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
 PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_single_url_podcast_episode_desc.txt"
@@ -18,8 +20,6 @@ EPISODE_TITLE_FILENAME = "episode_name.txt"
 EPISODE_DESC_FILENAME = "episode_desc.txt"
 EPISODE_URLS_FILENAME = "urls.txt"
 EPISODE_TEXT = "podcast_text.txt"
-
-dotenv.load_dotenv()
 
 class Configuration:
     output_language: str
@@ -90,13 +90,13 @@ class Configuration:
             self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME)
             self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME)
             self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION)
-            self.links_filename = SINGLE_URL_LINKS_FILENAME
+            self.links_filename = SINGLE_URL_LINKS_FILEPATH
             self.batch_size = 1
         else:
             self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME)
             self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME)
             self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION)
-            self.links_filename = MULTI_URL_LINKS_FILENAME
+            self.links_filename = MULTI_URL_LINKS_FILEPATH
             self.batch_size = 10
 
     def set_episode_details(self, episode_number: int, episode_title: str, episode_description: str):

@@ -1,4 +1,4 @@
-from config import SINGLE_URL_LINKS_FILENAME, MULTI_URL_LINKS_FILENAME
+from config import SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
 from main import process_languages
 import time
 from watchdog.observers import Observer
@@ -51,18 +51,18 @@ class HNFileChangeHandler(FileSystemEventHandler):
                     podcast2_urls = [item['url'] for item in data.get('podcast2', []) if 'url' in item]
 
                     # Ensure the 'sources' directory exists
-                    os.makedirs(os.path.dirname(SINGLE_URL_LINKS_FILENAME), exist_ok=True)
-                    os.makedirs(os.path.dirname(MULTI_URL_LINKS_FILENAME), exist_ok=True)
+                    os.makedirs(os.path.dirname(SINGLE_URL_LINKS_FILEPATH), exist_ok=True)
+                    os.makedirs(os.path.dirname(MULTI_URL_LINKS_FILEPATH), exist_ok=True)
 
-                    with open(MULTI_URL_LINKS_FILENAME, 'a', encoding='utf-8') as f:
+                    with open(MULTI_URL_LINKS_FILEPATH, 'a', encoding='utf-8') as f:
                         for url in podcast1_urls:
                             f.write(f"{url}\n")
-                    print(f"Wrote {len(podcast1_urls)} URLs to {MULTI_URL_LINKS_FILENAME}")
+                    print(f"Wrote {len(podcast1_urls)} URLs to {MULTI_URL_LINKS_FILEPATH}")
 
-                    with open(SINGLE_URL_LINKS_FILENAME, 'a', encoding='utf-8') as f:
+                    with open(SINGLE_URL_LINKS_FILEPATH, 'a', encoding='utf-8') as f:
                         for url in podcast2_urls:
                             f.write(f"{url}\n")
-                    print(f"Wrote {len(podcast2_urls)} URLs to {SINGLE_URL_LINKS_FILENAME}")
+                    print(f"Wrote {len(podcast2_urls)} URLs to {SINGLE_URL_LINKS_FILEPATH}")
 
                 except json.JSONDecodeError:
                     print(f"Error: Content of {self.monitored_filename} is not valid JSON.")
