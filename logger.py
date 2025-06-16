@@ -4,6 +4,7 @@ import dotenv
 import os
 from colorama import init, Fore, Style
 
+dotenv.load_dotenv()
 LOG_FILE_PATH = os.getenv("LOG_FILE_PATH")
 
 init(autoreset=True)
