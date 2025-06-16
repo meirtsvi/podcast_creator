@@ -1,4 +1,4 @@
-from logger import logger # Added
+import logger
 from config import SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
 from main import process_languages
 import time
