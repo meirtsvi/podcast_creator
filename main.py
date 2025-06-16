@@ -2,6 +2,8 @@ import sys
 import os
 import traceback
 
+from utils import read_file_content
+
 os.environ["PYTHONHTTPSVERIFY"] = "0"
 
 from common import (
@@ -14,7 +16,6 @@ from config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, 
 from audio import add_pre_and_post_audio
 from gen_podcast_text import generate_podcast_text
 from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
-from new_ver.transistor import read_text_from_file
 from transistor import upload_new_podcast_episode
 from url_to_md import get_markdown_from_url
 from logger import logger
@@ -123,6 +124,9 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
         if batch_number > 1 and not is_single_url_episode and len(urls) < batch_size:
             logger.info(f"Skipping batch {batch_number} as it contains less than {batch_size} URLs")
             continue
+        elif batch_number == 1 and not is_single_url_episode and len(urls) < 6:
+            logger.info(f"Skipping batch {batch_number} as it contains less than 6 URLs")
+            continue
         configuration.set_episode_urls(urls)
         configuration.set_episode_titles(titles)
         configuration.set_episode_contents(contents)
@@ -140,9 +144,9 @@ def produce_audio_for_missing_audio_episodes(configuration):
     for episode in episodes_without_audio:
         episode_number, episode_folder = episode
         logger.info(f"Producing audio for episode {episode_number} - {episode_folder}")
-        episode_title = read_text_from_file(episode_folder / EPISODE_TITLE_FILENAME)
-        episode_desc = read_text_from_file(episode_folder /  EPISODE_DESC_FILENAME)
-        podcast_text = read_text_from_file(episode_folder / EPISODE_TEXT)
+        episode_title = read_file_content(episode_folder / EPISODE_TITLE_FILENAME)
+        episode_desc = read_file_content(episode_folder /  EPISODE_DESC_FILENAME)
+        podcast_text = read_file_content(episode_folder / EPISODE_TEXT)
         configuration.set_episode_details(episode_number, episode_title, episode_desc)
         episode_audio_file_path = configuration.episode_folder / configuration.episode_audio_filename
         generate_podcast_episode_audio_from_text(configuration.episode_folder,

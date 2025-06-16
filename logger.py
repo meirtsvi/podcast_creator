@@ -1,6 +1,10 @@
 import logging
 import sys
+import dotenv
+import os
 from colorama import init, Fore, Style
+
+LOG_FILE_PATH = os.getenv("LOG_FILE_PATH")
 
 init(autoreset=True)
 
@@ -17,7 +21,7 @@ class ColorFormatter(logging.Formatter):
         message = super().format(record)
         return f"{color}{message}{Style.RESET_ALL}"
 
-def setup_logging(logfile='podcast_creator.log'):
+def setup_logging(logfile=LOG_FILE_PATH):
     logger = logging.getLogger('podcast_creator')
     logger.setLevel(logging.INFO)
 
