@@ -70,6 +70,8 @@ def generate_podcast_text(configuration: Configuration):
     input = f"This is episode {configuration.episode_number}.\n\n{prompt}.\n\n{lang_output_prompt}.{prompt_suffix}"
     with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
         f.write(input)
+    with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
+        f.write('\n'.join(configuration.episode_contents))
 
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
