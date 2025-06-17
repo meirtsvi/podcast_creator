@@ -20,7 +20,7 @@ def call_genai_api(prompt):
             logger.info(f"Calling GenAI API with prompt: {prompt}")
             response = client.models.generate_content(
                 #model="gemini-2.0-flash", contents=prompt
-               model="gemini-2.5-pro-preview-06-05", contents=prompt
+               model="gemini-2.5-pro", contents=prompt
             )
             ret = response.text
             break  # Success, exit the loop
