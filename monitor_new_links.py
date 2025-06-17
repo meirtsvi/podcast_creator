@@ -40,22 +40,22 @@ class HNFileChangeHandler(FileSystemEventHandler):
                 try:
                     data = json.loads(new_content_json_str)
 
-                    short_urls_list = [item['url'] for item in data.get('short', []) if 'url' in item]
-                    long_urls_list = [item['url'] for item in data.get('long', []) if 'url' in item]
+                    single_url_list = [item['url'] for item in data.get('single', []) if 'url' in item]
+                    multi_url_list = [item['url'] for item in data.get('multi', []) if 'url' in item]
 
                     # Ensure the 'sources' directory exists
                     os.makedirs(os.path.dirname(SINGLE_URL_LINKS_FILEPATH), exist_ok=True)
                     os.makedirs(os.path.dirname(MULTI_URL_LINKS_FILEPATH), exist_ok=True)
 
                     with open(MULTI_URL_LINKS_FILEPATH, 'a', encoding='utf-8') as f:
-                        for url in short_urls_list:
+                        for url in single_url_list:
                             f.write(f"{url}\n")
-                    logger.info(f"Wrote {len(short_urls_list)} URLs to {MULTI_URL_LINKS_FILEPATH}")
+                    logger.info(f"Wrote {len(single_url_list)} URLs to {MULTI_URL_LINKS_FILEPATH}")
 
                     with open(SINGLE_URL_LINKS_FILEPATH, 'a', encoding='utf-8') as f:
-                        for url in long_urls_list:
+                        for url in multi_url_list:
                             f.write(f"{url}\n")
-                    logger.info(f"Wrote {len(long_urls_list)} URLs to {SINGLE_URL_LINKS_FILEPATH}")
+                    logger.info(f"Wrote {len(multi_url_list)} URLs to {SINGLE_URL_LINKS_FILEPATH}")
 
                 except json.JSONDecodeError:
                     logger.error(f"Error: Content of {self.monitored_filename} is not valid JSON.")
