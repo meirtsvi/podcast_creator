@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 from url_to_md import get_markdown_from_url
 from logger import logger
+from youtube_content_extractor import extract_content_from_youtube
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -153,6 +154,9 @@ def generate_title_from_url(url):
         if "github.com" in final_url:
             logger.info(f"Skipping {url} because it's a GitHub page")
             return False, "", ""
+        if "youtube.com" in final_url or "youtu.be" in final_url:
+            title, _, _ = extract_content_from_youtube(final_url)
+            return True, title, final_url
         soup = BeautifulSoup(response.text, 'html.parser')
         if soup.title and soup.title.string:
             title = soup.title.string.strip()

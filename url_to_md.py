@@ -16,6 +16,9 @@ from logger import logger
 
 from pathlib import Path
 
+from youtube_content_extractor import extract_content_from_youtube
+
+
 def get_deepest_folder(path):
     p = Path(path)
     if p.is_file() or p.suffix:  # has a file extension
@@ -128,6 +131,11 @@ def _fetch_and_extract(url, session, headers=None):
 
 
 def get_markdown_from_url(url):
+
+    if "youtube.com" in url or "youtu.be" in url:
+        _, _, content = extract_content_from_youtube(url, lang='en')
+        return content, SimpleNamespace(status_code=200, url=url)
+
     """
     Tries to get markdown from a URL by fetching with and without headers,
     and using two different extraction methods. Returns the best result.
