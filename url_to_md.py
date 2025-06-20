@@ -3,11 +3,14 @@ import glob
 import datetime
 import random
 import time
-
 import requests
 from lxml import html
 from trafilatura import extract
 from markdownify import markdownify
+import html2text
+from playwright.sync_api import sync_playwright
+from types import SimpleNamespace
+
 
 from logger import logger
 
@@ -59,6 +62,33 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
 
     return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
 
+
+def playwright_extract_to_markdown(url: str):
+    """
+    Extracts markdown from a URL using Playwright and returns the markdown
+    and a mock response object with the status code.
+    """
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        response = None
+        html_content = ""
+        try:
+            response = page.goto(url, wait_until="networkidle")
+            if response and response.status == 404:
+                logger.error(f"Playwright received status 404 for {url}")
+            elif response:
+                html_content = page.content()
+        except Exception as e:
+            logger.error(f"Playwright failed to navigate to {url}: {e}")
+        finally:
+            browser.close()
+
+    markdown = html2text.html2text(html_content) if html_content else None
+    status = response.status if response else None
+    mock_response = SimpleNamespace(status_code=status) if status is not None else None
+
+    return markdown, mock_response
 
 def _fetch_and_extract(url, session, headers=None):
     """
@@ -137,24 +167,28 @@ def get_markdown_from_url(url):
             logger.info(f"Extraction without headers yielded the best result for {url}.")
             return md_no_headers, response_no_headers
 
-        logger.error(f"All extraction methods failed for {url}.")
-        # Return the most recent response if available
-        final_response = response_with_headers if response_with_headers is not None else response_no_headers
-        return None, final_response
+        logger.error(f"Two main extraction methods failed for {url}. Trying Playwright as a fallback.")
+        md_playwright, response_playwright = playwright_extract_to_markdown(url)
+        if md_playwright:
+            logger.info(f"Playwright successfully extracted data from {url}.")
+            return md_playwright, response_playwright
+
+        return None, response_playwright
 
 if __name__ == "__main__":
-    md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
-    md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
-    md = get_markdown_from_url("https://news.ycombinator.com/item?id=44095189")
-    md = get_markdown_from_url("https://substack.com/inbox/post/164096497")
-    md = get_markdown_from_url("https://sketch.dev/blog/agent-loop")
-    md = get_markdown_from_url("https://arstechnica.com/gadgets/2025/06/apples-craig-federighi-on-the-long-road-to-the-ipads-mac-like-multitasking/")
-    md = get_markdown_from_url("https://phys.org/news/2025-06-quantum-mechanics-random-demand.html")
-    md = get_markdown_from_url("https://www.calcalist.co.il/calcalistech/article/skjsrj8xee")
-    md = get_markdown_from_url("https://www.fastcompany.com/91331507/leap-71-ai-printing-rocket-engine-faster-cheaper")
-    md, code = get_markdown_from_url("https://theorthagonist.substack.com/p/why-reading-business-books-is-a-waste")
-    md, code = get_markdown_from_url("https://www.cleverthinkingsoftware.com/programmers-will-be-replaced-by-people-with-ideas")
-    logger.info(md)
+    #md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
+    # md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
+    # md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
+    # md = get_markdown_from_url("https://news.ycombinator.com/item?id=44095189")
+    # md = get_markdown_from_url("https://substack.com/inbox/post/164096497")
+    # md = get_markdown_from_url("https://sketch.dev/blog/agent-loop")
+    # md = get_markdown_from_url("https://arstechnica.com/gadgets/2025/06/apples-craig-federighi-on-the-long-road-to-the-ipads-mac-like-multitasking/")
+    # md = get_markdown_from_url("https://phys.org/news/2025-06-quantum-mechanics-random-demand.html")
+    # md = get_markdown_from_url("https://www.calcalist.co.il/calcalistech/article/skjsrj8xee")
+    # md = get_markdown_from_url("https://www.fastcompany.com/91331507/leap-71-ai-printing-rocket-engine-faster-cheaper")
+    # md, code = get_markdown_from_url("https://theorthagonist.substack.com/p/why-reading-business-books-is-a-waste")
+    # md, code = get_markdown_from_url("https://www.cleverthinkingsoftware.com/programmers-will-be-replaced-by-people-with-ideas")
+    #logger.info(md)
 
     # New functionality: process URLs from urls.txt files in specified directory
     base_dir = r"c:\Users\meir\Dropbox\tech_podcast_hebrew"
