@@ -73,10 +73,13 @@ def playwright_extract_to_markdown(url: str):
         page = browser.new_page()
         response = None
         html_content = ""
+        final_url = url
         try:
             response = page.goto(url, wait_until="networkidle")
+            final_url = page.url
             if response and response.status == 404:
                 logger.error(f"Playwright received status 404 for {url}")
+                html_content = ""
             elif response:
                 html_content = page.content()
         except Exception as e:
@@ -86,7 +89,7 @@ def playwright_extract_to_markdown(url: str):
 
     markdown = html2text.html2text(html_content) if html_content else None
     status = response.status if response else None
-    mock_response = SimpleNamespace(status_code=status) if status is not None else None
+    mock_response = SimpleNamespace(status_code=status, url=final_url)
 
     return markdown, mock_response
 
