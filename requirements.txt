@@ -6,3 +6,4 @@ python-csv
 colorama
 watchdog
 pydub
+google-auth-oauthlib

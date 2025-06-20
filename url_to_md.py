@@ -5,115 +5,168 @@ import random
 import time
 
 import requests
-import trafilatura
+from lxml import html
+from trafilatura import extract
+from markdownify import markdownify
+
 from logger import logger
 
-def get_markdown_from_url(url):
+from pathlib import Path
+
+def get_deepest_folder(path):
+    p = Path(path)
+    if p.is_file() or p.suffix:  # has a file extension
+        return p.parent.name
+    return p.name
+
+def html_to_markdown_fallback(raw_html, xpath_expr=None):
+    """Convert selected HTML content (with headers and paragraphs) to Markdown using markdownify."""
+    tree = html.fromstring(raw_html)
+
+    # Extract title
+    title = None
+    h1 = tree.xpath('//h1')
+    if h1 and h1[0].text_content().strip():
+        title = h1[0].text_content().strip()
+    elif tree.find(".//title") is not None:
+        title = tree.find(".//title").text.strip()
+
+    # Broad XPath to include headers and paragraphs
+    if xpath_expr is None:
+        xpath_expr = (
+            '//article//*['
+            'self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6 or self::p or self::table'
+            '] | '
+            '//div[contains(@class, "content")]//*['
+            'self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6 or self::p or self::table'
+            '] | '
+            '//div[contains(@class, "body")]//*['
+            'self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6 or self::p or self::table'
+            '] | '
+            '//div[@class="toptext"] | //div[contains(@class, "commtext")]'
+        )
+
+    elements = tree.xpath(xpath_expr)
+    if not elements:
+        return None
+
+    html_fragment = "<div>" + "".join(
+        html.tostring(el, encoding="unicode") for el in elements
+    ) + "</div>"
+
+    # Convert to Markdown with markdownify
+    markdown_text = markdownify(html_fragment, heading_style="ATX")  # ATX means using `#` headers
+
+    return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
+
+
+def _fetch_and_extract(url, session, headers=None):
+    """
+    Fetches content from a URL and extracts markdown using two methods,
+    returning the longest result.
+    """
     try:
-        max_retries = 3  # Retries per approach (without/with headers)
+        response = session.get(url, headers=headers, verify=False, allow_redirects=True, timeout=30)
+        response.raise_for_status()
+        html_string = response.text
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.208 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Cache-Control": "max-age=0",
-            "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-            "Connection": "keep-alive",
-        }
+        # Method 1: trafilatura.extract
+        md_extract = extract(html_string, output_format="markdown", favor_recall=True)
 
-        # First attempt without headers (simpler approach)
-        logger.info(f"Trying {url} without headers...")
+        # Method 2: html_to_markdown_fallback (manual extraction)
+        md_fallback = html_to_markdown_fallback(html_string)
 
-        # Try without headers
-        for retry in range(max_retries):
-            try:
-                response = requests.get(url, verify=False, allow_redirects=True, timeout=30)
-                status_code = response.status_code
-                if status_code == 200:
-                    downloaded = response.text
-                    md_text = trafilatura.extract(downloaded, output_format="markdown")
-                    if md_text:
-                        logger.info(f"Successfully extracted markdown without headers (attempt {retry+1}).")
-                        return md_text, response
-                    else:
-                        logger.info(f"Got response but couldn't extract markdown without headers (attempt {retry+1}).")
-                        break
+        # Compare and return the longest markdown content
+        len_extract = len(md_extract) if md_extract else 0
+        len_fallback = len(md_fallback) if md_fallback else 0
 
-                if retry < max_retries - 1:
-                    wait_time = random.uniform(10, 15)
-                    logger.info(f"Retry {retry+1}/{max_retries} without headers, waiting {wait_time:.2f} seconds...")
-                    time.sleep(wait_time)
-            except Exception as e:
-                logger.error(f"Error without headers (attempt {retry+1}): {e}")
+        if len_extract > len_fallback:
+            logger.info(f"extract() produced longer content for {url}")
+            return md_extract, response
+        elif len_fallback > 0:
+            logger.info(f"html_to_markdown_fallback() produced longer content for {url}")
+            return md_fallback, response
+        else:
+            return None, response
 
-        # If we get here, the without-headers approach failed
-        logger.info("Without-headers approach failed. Trying with headers...")
-
-        # Try with headers
-        for retry in range(max_retries):
-            try:
-                response = requests.get(url, headers=headers, verify=False, allow_redirects=True, timeout=30)
-                status_code = response.status_code
-                if status_code == 200:
-                    downloaded = response.text
-                    md_text = trafilatura.extract(downloaded, output_format="markdown")
-
-                    if md_text:
-                        logger.info(f"Successfully extracted markdown with headers (attempt {retry+1}).")
-                        return md_text, response
-                    else:
-                        logger.info(f"Got response but couldn't extract markdown with headers (attempt {retry+1}).")
-                        break
-
-                if retry < max_retries - 1:
-                    wait_time = random.uniform(10, 15)
-                    logger.info(f"Retry {retry+1}/{max_retries} with headers, waiting {wait_time:.2f} seconds...")
-                    time.sleep(wait_time)
-            except Exception as e:
-                logger.error(f"Error with headers (attempt {retry+1}): {e}")
-
-        # If we get here, both approaches failed
-        logger.error(f"Failed to extract markdown from {url} after trying without and with headers")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to fetch {url} with headers={headers is not None}. Error: {e}")
         return None, None
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return None, None
+
+
+def get_markdown_from_url(url):
+    """
+    Tries to get markdown from a URL by fetching with and without headers,
+    and using two different extraction methods. Returns the best result.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.208 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "Connection": "keep-alive",
+    }
+
+    with requests.Session() as session:
+        # Attempt 1: Without headers
+        logger.info(f"Attempting to fetch and extract from {url} without headers.")
+        md_no_headers, response_no_headers = _fetch_and_extract(url, session)
+
+        # Attempt 2: With headers
+        logger.info(f"Attempting to fetch and extract from {url} with headers.")
+        md_with_headers, response_with_headers = _fetch_and_extract(url, session, headers=headers)
+
+        # Compare the results from with/without headers
+        len_no_headers = len(md_no_headers) if md_no_headers else 0
+        len_with_headers = len(md_with_headers) if md_with_headers else 0
+
+        if len_with_headers > len_no_headers:
+            logger.info(f"Extraction with headers yielded the best result for {url}.")
+            return md_with_headers, response_with_headers
+
+        if len_no_headers > 0:
+            logger.info(f"Extraction without headers yielded the best result for {url}.")
+            return md_no_headers, response_no_headers
+
+        logger.error(f"All extraction methods failed for {url}.")
+        # Return the most recent response if available
+        final_response = response_with_headers if response_with_headers is not None else response_no_headers
+        return None, final_response
 
 if __name__ == "__main__":
-    md = get_markdown_from_url("https://www.calcalist.co.il/calcalistech/article/hyttkmvwxx")
-    #md = create_markdown_from_url("https://www.fastcompany.com/91331507/leap-71-ai-printing-rocket-engine-faster-cheaper")
-    #md, code = create_markdown_from_url("https://theorthagonist.substack.com/p/why-reading-business-books-is-a-waste")
-    #md, code = create_markdown_from_url("https://www.cleverthinkingsoftware.com/programmers-will-be-replaced-by-people-with-ideas")
+    md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
+    md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
+    md = get_markdown_from_url("https://news.ycombinator.com/item?id=44095189")
+    md = get_markdown_from_url("https://substack.com/inbox/post/164096497")
+    md = get_markdown_from_url("https://sketch.dev/blog/agent-loop")
+    md = get_markdown_from_url("https://arstechnica.com/gadgets/2025/06/apples-craig-federighi-on-the-long-road-to-the-ipads-mac-like-multitasking/")
+    md = get_markdown_from_url("https://phys.org/news/2025-06-quantum-mechanics-random-demand.html")
+    md = get_markdown_from_url("https://www.calcalist.co.il/calcalistech/article/skjsrj8xee")
+    md = get_markdown_from_url("https://www.fastcompany.com/91331507/leap-71-ai-printing-rocket-engine-faster-cheaper")
+    md, code = get_markdown_from_url("https://theorthagonist.substack.com/p/why-reading-business-books-is-a-waste")
+    md, code = get_markdown_from_url("https://www.cleverthinkingsoftware.com/programmers-will-be-replaced-by-people-with-ideas")
     logger.info(md)
 
     # New functionality: process URLs from urls.txt files in specified directory
     base_dir = r"c:\Users\meir\Dropbox\tech_podcast_hebrew"
 
-    # Create output file with timestamp
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"url_processing_results_{timestamp}.txt"
+    # Find all urls.txt files in all subdirectories
+    url_files = glob.glob(os.path.join(base_dir, "**", "urls.txt"), recursive=True)
+    for url_file in url_files:
+        # Only print the path of the current file on screen
+        logger.info(f"Processing URLs from: {url_file}")
 
-    with open(output_filename, 'w', encoding='utf-8') as results_file:
-        # Record start time and write header
-        results_file.write(f"URL Processing Results - {datetime.datetime.now()}\n")
-        results_file.write("="*50 + "\n\n")
-
-        # Find all urls.txt files in all subdirectories
-        url_files = glob.glob(os.path.join(base_dir, "**", "urls.txt"), recursive=True)
-
-        for url_file in url_files:
-            # Only print the path of the current file on screen
-            logger.info(f"Processing URLs from: {url_file}")
-
-            # Write detailed information to the results file
+        output_filename = f"url_processing_results_{get_deepest_folder(url_file)}.txt"
+        with open(output_filename, 'w', encoding='utf-8') as results_file:
             results_file.write(f"Processing URLs from: {url_file}\n")
             results_file.write("-"*50 + "\n")
 
@@ -125,18 +178,19 @@ if __name__ == "__main__":
                     md_content, response = get_markdown_from_url(url)
                     status_code = response.status_code if response else 500
                     if md_content:
-                        # Get the first line from the markdown content
-                        first_line = md_content.split('\n')[0] if md_content else "No content extracted"
-
                         # Write results to file
                         results_file.write(f"URL: {url}\n")
                         results_file.write(f"Status Code: {status_code}\n")
-                        results_file.write(f"First line: {first_line}\n")
+                        results_file.write(f"Content:\n{md_content}\n")
                         results_file.write("-" * 50 + "\n")
                     else:
                         # Write failure information to file
                         results_file.write(f"Failed to process URL: {url}\n")
                         results_file.write("-" * 50 + "\n")
+
+                # Write summary at the end
+                results_file.write(f"\nProcessing completed at {datetime.datetime.now()}\n")
+                results_file.write(f"Results saved to {os.path.abspath(output_filename)}\n")
 
             except Exception as e:
                 error_msg = f"Error processing file {url_file}: {e}"
@@ -144,8 +198,5 @@ if __name__ == "__main__":
                 results_file.write("-" * 50 + "\n")
                 logger.error(error_msg)
 
-        # Write summary at the end
-        results_file.write(f"\nProcessing completed at {datetime.datetime.now()}\n")
-        results_file.write(f"Results saved to {os.path.abspath(output_filename)}\n")
 
     logger.info(f"All results written to {os.path.abspath(output_filename)}")

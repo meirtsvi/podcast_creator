@@ -2,6 +2,7 @@ import sys
 import os
 import traceback
 
+import sendmail
 from utils import read_file_content
 
 os.environ["PYTHONHTTPSVERIFY"] = "0"
@@ -95,6 +96,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     filtered_titles = []
     remaining_content = []
 
+    url_without_content = []
     for url, title in zip(remaining_urls, remaining_titles):
         # Try to extract content from the URL
         logger.info(f"Extracting content from {url}...")
@@ -107,6 +109,15 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             remaining_content.append(md_content)
         else:
             logger.info(f"Skipping URL due to failed content extraction: {url}")
+            url_without_content.append(url)
+
+
+    if len(url_without_content) > 0:
+        logger.info(f"Found {len(url_without_content)} URLs without content. Sending email notification...")
+        sendmail.send_email(os.getenv("GMAIL_SEND_TO"),
+                            "URLs without content",
+                            f"The following URLs were skipped due to failed content extraction:\n\n" +
+                            "\n".join(url_without_content))
 
     # Update remaining_urls and remaining_titles to only include those with valid content
     remaining_urls = filtered_urls
