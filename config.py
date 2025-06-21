@@ -37,6 +37,7 @@ class Configuration:
     episode_urls: []
     episode_titles: []
     transistor_show_id: str
+    transistor_show_identifier: str
     episode_audio_filename: str
     man_speaker_name: str
     woman_speaker_name: str
@@ -50,6 +51,7 @@ class Configuration:
         self.season_number = 1
         if language == "hebrew":
             self.transistor_show_id = "64672"
+            self.transistor_show_identifier = "335a5183-08d0-48bf-835c-ebf1854db9d4"
             self.man_speaker_name = "יוּבָל"
             self.woman_speaker_name = "עָמִית"
             self.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
@@ -63,6 +65,7 @@ class Configuration:
                """
         elif language == "english":
             self.transistor_show_id = "64687"
+            self.transistor_show_identifier = "tech-updates"
             self.man_speaker_name = "Yuval"
             self.woman_speaker_name = "Amit"
             self.podcast_name = "Tech Updates"
@@ -76,9 +79,10 @@ class Configuration:
                """
         elif language == "russian":
             self.transistor_show_id = "64812"
+            self.transistor_show_identifier = "cce21b29-f4ea-4a62-a359-fb6798617b04"
             self.man_speaker_name = "Sasha"
             self.woman_speaker_name = "Zhenia"
-            self.podcast_name = "Tech Updates"
+            self.podcast_name = "Новости Технологий"
             self.text_direction = "left-to-right"
             self.podcast_tone = "Никогда не используй слово 'ну'!"
         else:

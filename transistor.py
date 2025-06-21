@@ -3,6 +3,7 @@ import requests
 import dotenv
 from pathlib import Path as p
 
+import sendmail
 from logger import logger
 
 from config import Configuration
@@ -13,11 +14,18 @@ dotenv.load_dotenv()
 TRANSISTOR_API_KEY = os.getenv("TRANSISTOR_API_KEY")
 
 def upload_new_podcast_episode(configuration: Configuration):
+    if configuration.transistor_show_id == "0":
+        logger.warning("Transistor show ID is not set. Skipping upload.")
+        return
+
     episode_folder = configuration.episode_folder
     logger.info(f"Uploading new podcast episode from {str(episode_folder)}...")
-    if not configuration.transistor_show_id == "0":
-        upload_episode_to_transistor(configuration)
-    logger.info(f"Uploaded new podcast episode {configuration.episode_number} to Transistor.fm")
+    upload_episode_to_transistor(configuration)
+    message = f"New podcast {configuration.output_language} episode #{configuration.episode_number} uploaded to Transistor.fm"
+    logger.info(message)
+    drafts_link = f"https://dashboard.transistor.fm/shows/{configuration.transistor_show_identifier}/episodes"
+    sendmail.send_email(send_to=os.getenv("GMAIL_SEND_TO"), subject=message, body=drafts_link)
+
 
 def authorize_audio_upload(audio_file_path):
     url = "https://api.transistor.fm/v1/episodes/authorize_upload"
