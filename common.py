@@ -104,7 +104,7 @@ def get_processed_urls(configuration: Configuration) -> set:
         except Exception as e:
             logger.error(f"Error reading {url_file}: {str(e)}")
 
-    logger.info(f"Found {len(processed_urls)} processed URLs")
+    logger.info(f"Found {len(processed_urls)} processed {configuration.output_language} URLs")
     return processed_urls
 
 def get_next_episode_number(configuration: Configuration) -> int:

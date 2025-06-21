@@ -13,7 +13,8 @@ from common import (
     generate_title_from_url, get_episodes_with_missing_audio,
 )
 
-from config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME
+from config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME, \
+    SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
 from audio import add_pre_and_post_audio
 from gen_podcast_text import generate_podcast_text
 from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
@@ -182,9 +183,43 @@ def process_one_language(configuration: Configuration):
         traceback.print_exc()
         sys.exit()
 
+
+def cleanup_existing_links(langs):
+    logger.info("Cleaning up existing links...")
+    per_lang_processed_urls = {}
+    for lang in langs.split(","):
+        configuration = Configuration(lang)
+        processed_urls = get_processed_urls(configuration)
+        processed_urls = {url.rstrip('/') for url in processed_urls}
+        per_lang_processed_urls[lang] = processed_urls
+    common_processed_urls = set.intersection(*per_lang_processed_urls.values())
+    with open(SINGLE_URL_LINKS_FILEPATH, "r", encoding="utf-8") as f:
+        existing_single_urls = set(line.strip().split(',', 1)[0].strip() for line in f if line.strip())
+        existing_single_urls = {url.rstrip('/') for url in existing_single_urls}
+    new_single_urls = existing_single_urls - common_processed_urls
+    if len(new_single_urls) != len(existing_single_urls):
+        with open(SINGLE_URL_LINKS_FILEPATH, "w", encoding="utf-8") as f:
+            for url in new_single_urls:
+                f.write(f"{url}\n")
+
+    with open(MULTI_URL_LINKS_FILEPATH, "r", encoding="utf-8") as f:
+        existing_multi_urls = set(line.strip().split(',', 1)[0].strip() for line in f if line.strip())
+        existing_multi_urls = {url.rstrip('/') for url in existing_multi_urls}
+    new_multi_urls = existing_multi_urls - common_processed_urls
+    if len(new_multi_urls) != len(existing_multi_urls):
+        with open(MULTI_URL_LINKS_FILEPATH, "w", encoding="utf-8") as f:
+            for url in new_multi_urls:
+                f.write(f"{url}\n")
+
+    logger.info(f"Cleaned up existing links. "
+                f"Remaining single URLs: {len(new_single_urls)}, "
+                f"Remaining multi URLs: {len(new_multi_urls)}")
+
+
 def process_languages(langs):
     if not langs:
         langs = "hebrew,english,russian"
+        cleanup_existing_links(langs)
     for lang in langs.split(","):
         logger.info(f"Processing language: {lang}")
         configuration = Configuration(lang)

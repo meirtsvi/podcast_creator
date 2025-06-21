@@ -92,7 +92,7 @@ def playwright_extract_to_markdown(url: str):
 
     markdown = html2text.html2text(html_content) if html_content else None
     status = response.status if response else None
-    mock_response = SimpleNamespace(status_code=status, url=final_url)
+    mock_response = SimpleNamespace(status_code=status, url=final_url, text=html_content)
 
     return markdown, mock_response
 
