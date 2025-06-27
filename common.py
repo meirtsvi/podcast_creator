@@ -147,7 +147,7 @@ def create_episode_folder(configuration: Configuration):
 
 def generate_title_from_url(url):
     try:
-        _, response = get_markdown_from_url(url)
+        md, response = get_markdown_from_url(url)
         final_url = response.url
         logger.info(f"Original URL: {url}")
         logger.info(f"Final URL after redirects: {final_url}")
@@ -157,6 +157,9 @@ def generate_title_from_url(url):
         if "youtube.com" in final_url or "youtu.be" in final_url:
             title, _, _ = extract_content_from_youtube(final_url)
             return True, title, final_url
+        if "dl.dropbox.com" in url:
+            prompt = f"Generate a concise, informative title for the article text below. Don't print 'here is concise...', just give the title: {md}"
+            return True, call_genai_api(prompt), final_url
         soup = BeautifulSoup(response.text, 'html.parser')
         if soup.title and soup.title.string:
             title = soup.title.string.strip()
@@ -213,3 +216,7 @@ def get_episodes_with_missing_audio(configuration: Configuration) -> list:
             missing_audio_episodes.append((episode_number, p(folder)))
 
     return missing_audio_episodes
+
+if __name__ == "__main__":
+    title = generate_title_from_url("https://dl.dropbox.com/scl/fi/6boeio53wmrqzvhun3lov/content_to_share-1.txt?rlkey=zqd71u8zy4vhi0kh2v11xftvn&dl=1")
+    print(title)
