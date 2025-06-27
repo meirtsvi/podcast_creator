@@ -106,6 +106,10 @@ def _fetch_and_extract(url, session, headers=None):
         response.raise_for_status()
         html_string = response.text
 
+        if '<html' not in html_string.lower():
+            html_string = f'<html><body>{html_string}</body></html>'
+
+
         # Method 1: trafilatura.extract
         md_extract = extract(html_string, output_format="markdown", favor_recall=True)
 
@@ -157,6 +161,14 @@ def get_markdown_from_url(url):
         "Connection": "keep-alive",
     }
 
+    if "themarker.com" in url:
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25',
+            'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://www.google.com/'
+        }
+
     with requests.Session() as session:
         # Attempt 1: Without headers
         logger.info(f"Attempting to fetch and extract from {url} without headers.")
@@ -187,6 +199,7 @@ def get_markdown_from_url(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md = get_markdown_from_url("https://dl.dropbox.com/scl/fi/rpe6ci69ciyqzoghtksx0/content_to_share.txt?rlkey=s57fvwzz18gs51k648coo5zfz&dl=1")
     #md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
     # md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
     # md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
