@@ -44,6 +44,7 @@ class Configuration:
     podcast_tone: str
     podcast_name: str
     text_direction: str
+    episode_contents: str
 
     def __init__(self, language: str):
         self.output_language = language
