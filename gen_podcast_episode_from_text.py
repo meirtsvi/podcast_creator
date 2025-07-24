@@ -18,6 +18,7 @@ dotenv.load_dotenv()
 
 # Define available API keys and tracking variables
 GEMINI_API_KEYS = [
+    os.environ.get("GEMINI_API_KEY_EV"),
     os.environ.get("GEMINI_API_KEY_IAC"),
     os.environ.get("GEMINI_API_KEY_WORK"),
     os.environ.get("GEMINI_API_KEY_VAZAZON"),
