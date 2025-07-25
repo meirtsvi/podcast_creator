@@ -12,3 +12,4 @@ markdownify
 html2text
 playwright
 yt_dlp
+mailersend
