@@ -12,7 +12,7 @@ from config import Configuration
 dotenv.load_dotenv()
 
 
-def apply_transations(podcast_text, configuration):
+def apply_translations(podcast_text, configuration):
     # --- Apply translations from translations.csv ---
     translations_path = os.path.join(os.path.dirname(__file__), 'translations.csv')
     if os.path.exists(translations_path):
@@ -112,7 +112,7 @@ def generate_podcast_text(configuration: Configuration):
     with open(configuration.episode_folder / "podcast_text_original.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
     podcast_text = cleanup_text(podcast_text, configuration)
-    podcast_text = apply_transations(podcast_text, configuration)
+    podcast_text = apply_translations(podcast_text, configuration)
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
 
@@ -127,7 +127,7 @@ def main():
         configuration.episode_folder = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_95"
         configuration.podcast_name = "עדכוני טכנולוגיה"
         podcast_text = cleanup_text(podcast_text, configuration)
-        new_podcast_text = apply_transations(podcast_text, configuration)
+        new_podcast_text = apply_translations(podcast_text, configuration)
         print(new_podcast_text)
 if __name__ == "__main__":
     main()

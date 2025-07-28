@@ -1,4 +1,4 @@
-Here is a list of URLs, and for each URL, its title. Create a summary from the titles. If several titles refer to the same company, summarize them together.
+Here is a list of URLs, and for each URL, its title. Create english summary from the titles. If several titles refer to the same company, summarize them together.
 **Do not** return an introduction such as “Here is the summary” or any other addition—only the summary.
 After the summary, print 1 blank line and then print the list of URLs, each URL on a separate line.
 Format all the text as valid HTML.

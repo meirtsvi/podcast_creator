@@ -48,14 +48,15 @@ def create_episode_title(configuration: Configuration, titles: [], episode_numbe
     return final_title
 
 def create_episode_description(configuration: Configuration, urls: [], titles: []):
-    prompt = configuration.prompt_for_episode_description_generation + ". Format text " + configuration.text_direction + "."
+    prompt = configuration.prompt_for_episode_description_generation + "."
     url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
     prompt += "\n".join(url_title_pairs)
     desc = call_genai_api(prompt)
     final_desc = call_genai_api(f"Translate the following text to {configuration.output_language}: "
-                                f": '{desc}'."
+                                f"Format text " + configuration.text_direction + "."
                                 f"Provide only the translated text and links without any additional text."
-                                f"Keep html format. Each link in a separate line.")
+                                f"Keep html format. Each link in a separate line."
+                                f": '{desc}'.")
     return final_desc
 
 def create_source_list(source_type, batch_size=10) -> list:
