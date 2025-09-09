@@ -145,21 +145,37 @@ def get_markdown_from_url(url):
     and using two different extraction methods. Returns the best result.
     """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.208 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "max-age=0",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        "Connection": "keep-alive",
-        "Cookie": "vmidv1=e6ccee59-bd0a-464e-b67b-067ac69e858b; blaize_session=b6a07e30-8a11-4f4b-8caa-33367a862a30; blaize_tracking_id=455ca7ab-51a3-40d3-92d4-9505eff29fc4; _awl=2.1749247632.5-c0f7ca89c84f26614349bc001dc571e2-6763652d6575726f70652d7765737431-1; AWSALB=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; AWSALBCORS=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; _vm_consent_type=opt-out; OptanonConsent=isGpcEnabled=0&datestamp=Thu+Jul+24+2025+15%3A33%3A47+GMT%2B0300+(Israel+Daylight+Time)&version=202504.1.0&browserGpcFlag=0&isIABGlobal=false&consentId=68abe6e0-243c-4f54-923e-c7edd8bdadd4&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CBG136%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1%2CC0005%3A1&hosts=H60%3A1%2CH369%3A1%2CH407%3A1%2CH236%3A1%2CH27%3A1%2CH42%3A1%2CH167%3A1%2CH486%3A1%2CH409%3A1%2CH410%3A1%2CH29%3A1%2CH62%3A1%2CH63%3A1%2CH4%3A1%2CH64%3A1%2CH231%3A1%2CH12%3A1%2CH251%3A1%2CH71%3A1%2CH74%3A1%2CH17%3A1%2CH488%3A1%2CH77%3A1%2CH275%3A1%2CH285%3A1%2CH82%3A1%2CH379%3A1%2CH381%3A1%2CH484%3A1%2CH89%3A1%2CH164%3A1%2CH90%3A1%2CH41%3A1%2CH46%3A1%2CH48%3A1%2CH244%3A1%2CH96%3A1%2CH290%3A1%2CH246%3A1%2CH489%3A1%2CH490%3A1%2CH304%3A1%2CH11%3A1%2CH487%3A1%2CH297%3A1&genVendors=&AwaitingReconsent=false; duet:identitySession=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSUQiOiJjYzM1M2NhOS1mNGYwLTQ2NzktOGNhOS04MmQzNjA3YzI0OWEiLCJ1c2VySUQiOiJFMU44a3p0R0VnZ1hYa29yazZqS3kzeUlmcFYyIiwiZW50aXRsZW1lbnRzIjoidGhldmVyZ2Vfc3Vic2NyaXB0aW9uIiwiaWF0IjoxNzUzMzYwNDQ0LCJleHAiOjE3NjExMzY0NDR9.JGC0d_OyvmTY7MdFNdPL2hIEiHQlc0cfHqSofSJRZZEBdqwsVWw382DXtX6C9LiN_3DO56UuaJVreJpWbj5BIebEOZryyIeM_NEnDn7HSUx4BMbTm8DuaqLy-iHU8pMmPZ5RQGKDWfVI88VLCrLx5V4iyQsZiYr7OZYg3TabZsW0nWgyezw1KiVLTzitdZRkRT-To6nrMUOQSQr0uoDhF8h1ADJZHu_Q94yR9zCm3QZFEEnC_zwdS3o9-I0SJRsfBG4H1jGPC4q7Hlbh8hKxdAPdddRNSly-n4AkgNFsUpWv2Kt0hQXxg6_sJKgQ66d65ihgxkewNQyGKlADqeM4Jb8Ws3QXW00KykxQK1S75D72yVPizL7jDIeGGSuUyS_LaBJ0R1I8OSYwqiS-9ucEf3fLiKBgW6pcpHesRaUX1dXTnGq5OBQjOzYQ-mvbm4fq-bVz8h02NARjXxcP5v2hsvF7kIETICjGJuvv9rr91R1VANiQiMZW1YKtcK3nAD8ze8sFe_HqsVN_seDeYoSmcsIeUejuF44ob_P4aG4ze9xdUTBZeUoANv6cby9nFnhp8gEWqRukCVQgEIj3deMgqrPoAjWvMjjCgnQ8KE_qi8SwCYFjVnOh-Ots1ZJCPysk1xS4K_jCdsSsJ9fU60X1iZrLXWeQH0zrRsF853P2Vl4; duet:identityAuthenticated=true"
+        # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.208 Safari/537.36",
+        # "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        # "Accept-Encoding": "gzip, deflate, br",
+        # "Accept-Language": "en-US,en;q=0.9",
+        # "Cache-Control": "max-age=0",
+        # "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
+        # "Sec-Ch-Ua-Mobile": "?0",
+        # "Sec-Ch-Ua-Platform": '"Windows"',
+        # "Sec-Fetch-Dest": "document",
+        # "Sec-Fetch-Mode": "navigate",
+        # "Sec-Fetch-Site": "none",
+        # "Sec-Fetch-User": "?1",
+        # "Upgrade-Insecure-Requests": "1",
+        # "Connection": "keep-alive",
+        # #"Cookie": "vmidv1=e6ccee59-bd0a-464e-b67b-067ac69e858b; blaize_session=b6a07e30-8a11-4f4b-8caa-33367a862a30; blaize_tracking_id=455ca7ab-51a3-40d3-92d4-9505eff29fc4; _awl=2.1749247632.5-c0f7ca89c84f26614349bc001dc571e2-6763652d6575726f70652d7765737431-1; AWSALB=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; AWSALBCORS=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; _vm_consent_type=opt-out; OptanonConsent=isGpcEnabled=0&datestamp=Thu+Jul+24+2025+15%3A33%3A47+GMT%2B0300+(Israel+Daylight+Time)&version=202504.1.0&browserGpcFlag=0&isIABGlobal=false&consentId=68abe6e0-243c-4f54-923e-c7edd8bdadd4&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CBG136%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1%2CC0005%3A1&hosts=H60%3A1%2CH369%3A1%2CH407%3A1%2CH236%3A1%2CH27%3A1%2CH42%3A1%2CH167%3A1%2CH486%3A1%2CH409%3A1%2CH410%3A1%2CH29%3A1%2CH62%3A1%2CH63%3A1%2CH4%3A1%2CH64%3A1%2CH231%3A1%2CH12%3A1%2CH251%3A1%2CH71%3A1%2CH74%3A1%2CH17%3A1%2CH488%3A1%2CH77%3A1%2CH275%3A1%2CH285%3A1%2CH82%3A1%2CH379%3A1%2CH381%3A1%2CH484%3A1%2CH89%3A1%2CH164%3A1%2CH90%3A1%2CH41%3A1%2CH46%3A1%2CH48%3A1%2CH244%3A1%2CH96%3A1%2CH290%3A1%2CH246%3A1%2CH489%3A1%2CH490%3A1%2CH304%3A1%2CH11%3A1%2CH487%3A1%2CH297%3A1&genVendors=&AwaitingReconsent=false; duet:identitySession=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSUQiOiJjYzM1M2NhOS1mNGYwLTQ2NzktOGNhOS04MmQzNjA3YzI0OWEiLCJ1c2VySUQiOiJFMU44a3p0R0VnZ1hYa29yazZqS3kzeUlmcFYyIiwiZW50aXRsZW1lbnRzIjoidGhldmVyZ2Vfc3Vic2NyaXB0aW9uIiwiaWF0IjoxNzUzMzYwNDQ0LCJleHAiOjE3NjExMzY0NDR9.JGC0d_OyvmTY7MdFNdPL2hIEiHQlc0cfHqSofSJRZZEBdqwsVWw382DXtX6C9LiN_3DO56UuaJVreJpWbj5BIebEOZryyIeM_NEnDn7HSUx4BMbTm8DuaqLy-iHU8pMmPZ5RQGKDWfVI88VLCrLx5V4iyQsZiYr7OZYg3TabZsW0nWgyezw1KiVLTzitdZRkRT-To6nrMUOQSQr0uoDhF8h1ADJZHu_Q94yR9zCm3QZFEEnC_zwdS3o9-I0SJRsfBG4H1jGPC4q7Hlbh8hKxdAPdddRNSly-n4AkgNFsUpWv2Kt0hQXxg6_sJKgQ66d65ihgxkewNQyGKlADqeM4Jb8Ws3QXW00KykxQK1S75D72yVPizL7jDIeGGSuUyS_LaBJ0R1I8OSYwqiS-9ucEf3fLiKBgW6pcpHesRaUX1dXTnGq5OBQjOzYQ-mvbm4fq-bVz8h02NARjXxcP5v2hsvF7kIETICjGJuvv9rr91R1VANiQiMZW1YKtcK3nAD8ze8sFe_HqsVN_seDeYoSmcsIeUejuF44ob_P4aG4ze9xdUTBZeUoANv6cby9nFnhp8gEWqRukCVQgEIj3deMgqrPoAjWvMjjCgnQ8KE_qi8SwCYFjVnOh-Ots1ZJCPysk1xS4K_jCdsSsJ9fU60X1iZrLXWeQH0zrRsF853P2Vl4; duet:identityAuthenticated=true"
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-language': 'en-US,en;q=0.9,he;q=0.8',
+        'cache-control': 'no-cache',
+        'dnt': '1',
+        'pragma': 'no-cache',
+        'priority': 'u=0, i',
+        'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+        'Cookie': 'vmidv1=5d96018b-fbaa-4f7a-abec-17575e728528; _vm_consent_type=opt-out; pbjs_sharedId=fb0236bc-b131-40e4-bd1b-cd61ae28bf4f; pbjs_sharedId_cst=zix7LPQsHA%3D%3D; _lr_retry_request=true; _lr_env_src_ats=false; _gcl_au=1.1.819203324.1753764721; pbjs_unifiedID=%7B%22TDID%22%3A%220b01272a-a279-4507-9423-a6fbdfc05f2b%22%2C%22TDID_LOOKUP%22%3A%22TRUE%22%2C%22TDID_CREATED_AT%22%3A%222025-06-29T04%3A52%3A01%22%7D; pbjs_unifiedID_cst=zix7LPQsHA%3D%3D; _parsely_session={%22sid%22:1%2C%22surl%22:%22https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai%22%2C%22sref%22:%22%22%2C%22sts%22:1753764721584%2C%22slts%22:0}; blaize_session=4abee957-f3ad-49fc-a20b-2c58efd0af0d; blaize_tracking_id=4ca98a3e-f3f5-4e5e-a08e-88474b96eae1; _parsely_visitor={%22id%22:%22pid=a9e3d10b-ec71-484d-a1c9-dbb2c3e115d1%22%2C%22session_count%22:1%2C%22last_session_ts%22:1753764721584}; _ga=GA1.1.1327380282.1753764722; sailthru_visitor=88b9255e-77b6-41d6-987b-ddfc533c0800; permutive-id=593596f2-dd4e-43d7-a6bc-0da45358be90; _tt_enable_cookie=1; _ttp=01K1A8BXG7CFS8QC92XKKJD081_.tt.1; _fbp=fb.1.1753764722328.37428949349292645; __gads=ID=540cfabb4c464483:T=1753764722:RT=1753764722:S=ALNI_Ma8jY9tmDtrSCcgUyBeD7wqlc2iug; __eoi=ID=b4b1a8575c3ba339:T=1753764722:RT=1753764722:S=AA-AfjbH2c-XP5B2-4giiaqrYoEg; cnx_userId=3-92621218b5e54b5d88209decaf046c16; _cc_id=704c4f4c7900f8105911444f61f9d621; panoramaId_expiry=1754369524330; panoramaId=bab2d41d166db157744f9e7b5c5b16d539386d3a18f366a87bb928aac8e68e94; panoramaIdType=panoIndiv; _lr_sampling_rate=100; duet:identityAuthenticated=true; duet:identitySession=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSUQiOiJhYmUxZTY1NS03ODEzLTQ4YTYtYTVmNy0zYzE0NDEwYWU5ZGUiLCJ1c2VySUQiOiJFMU44a3p0R0VnZ1hYa29yazZqS3kzeUlmcFYyIiwiZW50aXRsZW1lbnRzIjoidGhldmVyZ2Vfc3Vic2NyaXB0aW9uIiwiaWF0IjoxNzUzNzY0NzY4LCJleHAiOjE3NjE1NDA3Njh9.AD21358PrlTTMKAScuuPn2FBrwaU8Uhi69arAzj4_OPQIRQMpbYA3pESKbsnst5Zj7mRrEpPqOJzKyUStqHcYD0PXiIOp4FBH2e_rjJ-3RsmBiXDab59i0evTiwT9IgIFT3RgSdN9nHEve4TeBgwdVyyu6AYKhqzysqHZkZFz_zuz-Y3b9PmpWjR9YgXa7r4PgBxPXNqPAB3W7ESqLYLVAnOUMHtED_Nn0FTt6SCqaVAEvXK3FV1plLsMBCecOknQ0G08UoUXHV_s2SfF_FF1wmKOlhmc5SoUZ72LC46Jw0Xbw1lAhetSpKrTCHKSBhaMekWLCVc-1ls0ANK7Hzps0iLuItycuWBNpiMnNmdexihgXpZtOr4oNrpy4_tv_ab9_nqWojtz_1DZulKSGAsu89L8EUA1l8v9d44DsM76k5NcXGECkwWIJ-03WFDUYpoJcXnnJs3pqRxKuRyh6Ijjp8CdJ_5aFlnt16z19nO8dZs98cIItq6leVqdw7bDxcnHh5AN-ElUYCt-j-Krpt38K3RXrBpfCUYt6ntVEhssoESrjniaQuNhhi046TE8Y0oaNokhCE7rBIrBo6M07u4Pcy33u93JvLq4jQPgGg8o595_LNx2j550MtUvNI-grv_ggo_NWb3PCJlI2ko8kZsw08n-t2Auf1mWn_NkL57pYk; sailthru_pageviews=3; OptanonConsent=isGpcEnabled=0&datestamp=Tue+Jul+29+2025+07%3A52%3A48+GMT%2B0300+(Israel+Daylight+Time)&version=202504.1.0&browserGpcFlag=0&isIABGlobal=false&consentId=15b6c650-ee8b-4449-b7b1-7f099e264241&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CBG136%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1%2CC0005%3A1&hosts=H60%3A1%2CH369%3A1%2CH407%3A1%2CH236%3A1%2CH27%3A1%2CH42%3A1%2CH167%3A1%2CH486%3A1%2CH409%3A1%2CH410%3A1%2CH29%3A1%2CH62%3A1%2CH63%3A1%2CH4%3A1%2CH64%3A1%2CH231%3A1%2CH12%3A1%2CH251%3A1%2CH71%3A1%2CH74%3A1%2CH17%3A1%2CH488%3A1%2CH77%3A1%2CH275%3A1%2CH285%3A1%2CH82%3A1%2CH379%3A1%2CH381%3A1%2CH484%3A1%2CH89%3A1%2CH164%3A1%2CH90%3A1%2CH41%3A1%2CH46%3A1%2CH48%3A1%2CH244%3A1%2CH96%3A1%2CH290%3A1%2CH246%3A1%2CH489%3A1%2CH490%3A1%2CH304%3A1%2CH11%3A1%2CH487%3A1%2CH297%3A1&genVendors=&AwaitingReconsent=false; sailthru_content=0574b3fac79d43f63c4241c6dec7f3e8d75f5fb0badd7516e16e30197bdc0a61; ttcsid=1753764722191::LnxHA30JmrZRAXld8JCU.1.1753764769557; ttcsid_COPQD3JC77UADS7P6KBG=1753764722189::sxaax66AadqjqbEfssqQ.1.1753764769955; _awl=2.1753764771.5-65e5d1563da8ff1ce9e626d40d806889-6763652d6575726f70652d7765737431-0; AWSALB=+mrOul9DvCy6T20ceJk1UsbCX8uZ/UlCftMk9So0HQgc72mx3nEQcvSVPAEBC+DInrpO9acSQicePVV91yYt5BIt8DciSWEoIptOym4jgXus78RHliVnu+3CbzFK; AWSALBCORS=+mrOul9DvCy6T20ceJk1UsbCX8uZ/UlCftMk9So0HQgc72mx3nEQcvSVPAEBC+DInrpO9acSQicePVV91yYt5BIt8DciSWEoIptOym4jgXus78RHliVnu+3CbzFK; _ga_9GXHZT6RVE=GS2.1.s1753764721$o1$g1$t1753765283$j60$l0$h0$dPwf6YAwXLoHOO-ETuAl8t2lch5XEmM9g3A'
     }
 
     if "themarker.com" in url:
@@ -200,8 +216,8 @@ def get_markdown_from_url(url):
         return None, response_playwright
 
 if __name__ == "__main__":
-    md = get_markdown_from_url("https://dl.dropbox.com/scl/fi/rpe6ci69ciyqzoghtksx0/content_to_share.txt?rlkey=s57fvwzz18gs51k648coo5zfz&dl=1")
-    #md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
+    md = get_markdown_from_url("https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai")
+    md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
     # md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
     # md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
     # md = get_markdown_from_url("https://news.ycombinator.com/item?id=44095189")

@@ -24,7 +24,7 @@ def upload_new_podcast_episode(configuration: Configuration):
     message = f"New podcast {configuration.output_language} episode #{configuration.episode_number} uploaded to Transistor.fm"
     logger.info(message)
     drafts_link = f"https://dashboard.transistor.fm/shows/{configuration.transistor_show_identifier}/episodes"
-    sendmail.send_email(send_to=os.getenv("GMAIL_SEND_TO"), subject=message, body=drafts_link)
+    sendmail.send_email(send_to=os.getenv("MAIL_SEND_TO"), subject=message, body=drafts_link)
 
 
 def authorize_audio_upload(audio_file_path):

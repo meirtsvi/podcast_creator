@@ -207,7 +207,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
             ),
         )
 
-        max_silence_retries = 3
+        max_silence_retries = 5
         silence_retry_count = 0
         success = False
         while silence_retry_count < max_silence_retries and not success:

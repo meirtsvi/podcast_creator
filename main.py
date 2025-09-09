@@ -115,7 +115,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
 
     if len(url_without_content) > 0:
         logger.info(f"Found {len(url_without_content)} URLs without content. Sending email notification...")
-        sendmail.send_email(os.getenv("GMAIL_SEND_TO"),
+        sendmail.send_email(os.getenv("MAIL_SEND_TO"),
                             "URLs without content",
                             f"The following URLs were skipped due to failed content extraction:\n\n" +
                             "\n".join(url_without_content))
