@@ -154,20 +154,22 @@ def produce_audio_for_missing_audio_episodes(configuration):
     logger.info(f"Processing missing audio episodes...")
     episodes_without_audio = get_episodes_with_missing_audio(configuration)
     for episode in episodes_without_audio:
-        episode_number, episode_folder = episode
-        logger.info(f"Producing audio for episode {episode_number} - {episode_folder}")
-        episode_title = read_file_content(episode_folder / EPISODE_TITLE_FILENAME)
-        episode_desc = read_file_content(episode_folder /  EPISODE_DESC_FILENAME)
-        podcast_text = read_file_content(episode_folder / EPISODE_TEXT)
-        configuration.set_episode_details(episode_number, episode_title, episode_desc)
-        episode_audio_file_path = configuration.episode_folder / configuration.episode_audio_filename
-        generate_podcast_episode_audio_from_text(configuration.episode_folder,
-                                                  podcast_text,
-                                                  episode_audio_file_path,
-                                                  [configuration.man_speaker_name, configuration.woman_speaker_name])
-        add_pre_and_post_audio(episode_audio_file_path)
-        upload_new_podcast_episode(configuration)
-
+        try:
+            episode_number, episode_folder = episode
+            logger.info(f"Producing audio for episode {episode_number} - {episode_folder}")
+            episode_title = read_file_content(episode_folder / EPISODE_TITLE_FILENAME)
+            episode_desc = read_file_content(episode_folder /  EPISODE_DESC_FILENAME)
+            podcast_text = read_file_content(episode_folder / EPISODE_TEXT)
+            configuration.set_episode_details(episode_number, episode_title, episode_desc)
+            episode_audio_file_path = configuration.episode_folder / configuration.episode_audio_filename
+            generate_podcast_episode_audio_from_text(configuration.episode_folder,
+                                                      podcast_text,
+                                                      episode_audio_file_path,
+                                                      [configuration.man_speaker_name, configuration.woman_speaker_name])
+            add_pre_and_post_audio(episode_audio_file_path)
+            upload_new_podcast_episode(configuration)
+        except Exception as e:
+            logger.error(f"Error processing episode {episode_number}: {e}")
 
 def process_one_language(configuration: Configuration):
     try:
