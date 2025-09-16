@@ -9,3 +9,5 @@ sources/**
 
 *.log
 *.wav
+__pycache__/
+*.pyc

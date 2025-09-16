@@ -46,7 +46,7 @@ def save_binary_file(file_name, data):
 
 def merge_wav_files(input_files, output_file):
     """Merge multiple WAV files into a single WAV file.
-    
+
     Args:
         input_files: List of input WAV file paths
         output_file: Path to the output WAV file
@@ -54,11 +54,11 @@ def merge_wav_files(input_files, output_file):
     # Get parameters from first file
     with wave.open(str(input_files[0]), 'rb') as first_file:
         params = first_file.getparams()
-    
+
     # Create output file
-    with wave.open( str(output_file), 'wb') as output:
+    with wave.open(str(output_file), 'wb') as output:
         output.setparams(params)
-        
+
         # Write data from each input file
         for input_file in input_files:
             with wave.open(str(input_file), 'rb') as w:
@@ -66,14 +66,14 @@ def merge_wav_files(input_files, output_file):
 
 def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1):
     """Generate content with retry mechanism.
-    
+
     Args:
         model: The model name
         contents: The content to generate
         config: The generation config
         max_retries: Maximum number of retry attempts
         initial_delay: Initial delay between retries in seconds
-        
+
     Returns:
         The generated content or None if all retries failed
     """
@@ -102,7 +102,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 yield chunk
             logger.info(f"  Successfully received {chunk_count} chunks.")
             return  # Success, exit the function
-            
+
         except ServerError as se:
             logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
             if attempt < max_retries - 1:
@@ -119,12 +119,12 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
 
             # Check if this is a rate limit error (HTTP 429)
             if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
-                logger.info(f"  Rate limit exceeded. Rotating to next API key...")
+                logger.warning(f"  Rate limit exceeded. Rotating to next API key...")
                 # Get the next API key
                 next_key = get_next_api_key()
                 logger.info(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
             elif attempt < max_retries - 1:
-                logger.info(f"  Retrying in {delay} seconds...")
+                logger.warning(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2
 
@@ -132,25 +132,97 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
                 raise  # Re-raise the last error
 
-def split_text_into_chunks(text, max_chars_per_chunk=4000):
+def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
     SEPARATOR = "\n"
     """Splits text into chunks, trying to respect sentence boundaries."""
     chunks = []
     current_chunk = ""
-    sentences = text.split(SEPARATOR) # Simple split, can be improved with smarter tokenization
+    # Simple split, can be improved with smarter tokenization
+    sentences = text.split(SEPARATOR)
 
     for sentence in sentences:
-        if len(current_chunk) + len(sentence) + 1 <= max_chars_per_chunk: # +1 for SEPARATOR
+        if len(current_chunk) + len(sentence) + 1 <= max_chars_per_chunk:  # +1 for SEPARATOR
             current_chunk += sentence + SEPARATOR
         else:
-            if current_chunk: # Add previous chunk if not empty
+            if current_chunk:  # Add previous chunk if not empty
                 chunks.append(current_chunk.strip())
             current_chunk = sentence + SEPARATOR
-    if current_chunk: # Add the last chunk
+    if current_chunk:  # Add the last chunk
         chunks.append(current_chunk.strip())
     return chunks
 
-def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names):
+
+def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
+    for host_name in host_names:
+        if text.startswith(host_name):
+            return split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk)
+
+    """Splits text into chunks, trying to respect sentence boundaries."""
+
+    # Step 1: Split text into individual sentences (one per line)
+    # Improved regex to avoid splitting on:
+    # - "et al." (and other common abbreviations)
+    # - Numbered lists like "1. ", "2. ", etc.
+    # - Other common abbreviations
+
+    # First, protect common abbreviations by temporarily replacing them
+    text = re.sub(r'\bet al\.', 'et al◊', text)  # Protect "et al."
+    text = re.sub(r'\bvs\.', 'vs◊', text)        # Protect "vs."
+    text = re.sub(r'\be\.g\.', 'e◊g◊', text)    # Protect "e.g."
+    text = re.sub(r'\bi\.e\.', 'i◊e◊', text)    # Protect "i.e."
+    text = re.sub(r'\betc\.', 'etc◊', text)     # Protect "etc."
+
+    # Protect numbered lists (like "1. Title", "2. Section", etc.)
+    text = re.sub(r'\b(\d+)\.\s+([A-Z])', r'\1◊ \2', text)
+
+    # Split on sentence-ending punctuation followed by whitespace, but not on numbered lists
+    # Use negative lookbehind to avoid splitting after numbers followed by period
+    sentence_pattern = r'(?<![0-9])(?<=[.!?])\s+'
+    sentences = re.split(sentence_pattern, text.strip())
+
+    # Restore the protected abbreviations
+    sentences = [sentence.replace('◊', '.') for sentence in sentences]
+
+    # Remove empty sentences and strip whitespace
+    sentences = [sentence.strip()
+                 for sentence in sentences if sentence.strip()]
+
+    # Step 2: Group sentences into chunks based on max_chars_per_chunk
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        # Calculate the length if we add this sentence
+        if current_chunk:
+            potential_length = len(current_chunk) + 1 + \
+                len(sentence)  # +1 for newline
+        else:
+            potential_length = len(sentence)
+
+        # Check if adding this sentence would exceed the limit
+        if current_chunk and potential_length > max_chars_per_chunk:
+            # Add the current chunk and start a new one
+            chunks.append(current_chunk.strip())
+            current_chunk = sentence
+        else:
+            # Add sentence to current chunk
+            if current_chunk:
+                current_chunk += "\n" + sentence
+            else:
+                current_chunk = sentence
+
+    # Add the last chunk if it's not empty
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
+def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names,
+                                             hosts_gender=None, tone=None):
+    if hosts_gender is None:
+        hosts_gender = ['Male', 'Female']
+    if tone is None:
+        tone = "Conversational"
     logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
@@ -158,9 +230,9 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
     # List to store generated WAV files
     generated_files = []
 
-    podcast_text = re.sub(r'\n+', '\n', podcast_text).strip()  # Remove extra newlines
-    chunks = split_text_into_chunks(podcast_text)
-    for i,chunk_text in enumerate(chunks):
+    podcast_text = re.sub(r'\n+', '\n', podcast_text).strip()
+    chunks = split_text_into_chunks(podcast_text, speaker_names)
+    for i, chunk_text in enumerate(chunks):
         logger.info(chunk_text)
         chunk_text = ("Read the following script as natural-sounding speech. "
                       "If there are cues in parentheses (like (laughing), (whispering), (angry)),"
@@ -175,37 +247,96 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                 ],
             ),
         ]
-        
-        generate_content_config = types.GenerateContentConfig(
-            temperature=0.5,
-            response_modalities=[
-                "audio",
-            ],
-            speech_config=types.SpeechConfig(
-                multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
-                    speaker_voice_configs=[
-                        types.SpeakerVoiceConfig(
-                            speaker=speaker_names[0],
-                            voice_config=types.VoiceConfig(
-                                prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    #voice_name="Charon",
-                                    voice_name="Puck",
-                               ),
-                            ),
-                        ),
-                        types.SpeakerVoiceConfig(
-                            speaker=speaker_names[1],
-                            voice_config=types.VoiceConfig(
-                                prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    #voice_name="Zephyr",
-                                    voice_name="Kore",
+
+        host_gender = hosts_gender[0]
+        if host_gender == 'Male':
+            if tone == "Energetic":
+                voice1 = "Orus"
+            elif tone == "Conversational":
+                voice1 = "Puck"
+            elif tone == "Academic":
+                voice1 = "Sadaltager"
+            else:
+                raise ValueError(f"Unknown tone: {tone}")
+        else:
+            if tone == "Energetic":
+                voice1 = "Aoede"
+            elif tone == "Conversational":
+                voice1 = "Laomedeia"
+            elif tone == "Academic":
+                voice1 = "Gacrux"
+            else:
+                raise ValueError(f"Unknown tone: {tone}")
+
+        if len(speaker_names) == 2:
+            host_gender = hosts_gender[1]
+            if host_gender == 'Male':
+                if tone == "Energetic":
+                    voice2 = "Zubenelgenubi"
+                elif tone == "Conversational":
+                    voice2 = "Fenrir"
+                elif tone == "Academic":
+                    voice2 = "Charon"
+                else:
+                    raise ValueError(f"Unknown tone: {tone}")
+            else:
+                if tone == "Energetic":
+                    voice2 = "Zephyr"
+                elif tone == "Conversational":
+                    voice2 = "Kore"
+                elif tone == "Academic":
+                    voice2 = "Autonoe"
+                else:
+                    raise ValueError(f"Unknown tone: {tone}")
+
+        if len(speaker_names) == 1:
+            logger.info(f"Using voice {voice1} for single speaker: {speaker_names[0]}")
+        else:
+            logger.info(f"Using voice {voice1} for speaker: {speaker_names[0]} and {voice2} for speaker: {speaker_names[1]}")
+
+        if len(speaker_names) == 1:
+            generate_content_config = types.GenerateContentConfig(
+                temperature=1,
+                response_modalities=[
+                    "AUDIO",
+                ],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice1
+                        )
+                    )
+                ),
+            )
+        else:
+            generate_content_config = types.GenerateContentConfig(
+                temperature=0.5,
+                response_modalities=[
+                    "audio",
+                ],
+                speech_config=types.SpeechConfig(
+                    multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
+                        speaker_voice_configs=[
+                            types.SpeakerVoiceConfig(
+                                speaker=speaker_names[0],
+                                voice_config=types.VoiceConfig(
+                                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                        voice_name=voice1,
+                                    ),
                                 ),
                             ),
-                        ),
-                    ]
+                            types.SpeakerVoiceConfig(
+                                speaker=speaker_names[1],
+                                voice_config=types.VoiceConfig(
+                                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                        voice_name=voice2,
+                                    ),
+                                ),
+                            ),
+                        ]
+                    ),
                 ),
-            ),
-        )
+            )
 
         max_silence_retries = 5
         silence_retry_count = 0
@@ -225,6 +356,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                         or chunk.candidates[0].content is None
                         or chunk.candidates[0].content.parts is None
                     ):
+                        logger.error(f"Empty chunk detected: {chunk}")
                         continue
                     if chunk.candidates[0].content.parts[0].inline_data:
                         chunk_found = True
@@ -235,6 +367,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                         if file_extension is None:
                             file_extension = ".wav"
                             data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
+                        # Ensure chunk files are written under the per-episode dir
                         output_file = episode_dir / f"{file_name}{file_extension}"
                         save_binary_file(output_file, data_buffer)
                         if detect_silence_in_wav(output_file):
@@ -340,11 +473,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\podcast_text.txt ", "r", encoding='utf-8') as f:
+    with open("/tmp/3.txt", "r", encoding='utf-8') as f:
         podcast_text = f.read()
-    episode_file_path = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\Episode_96.mp3"
-    speaker_names = ["יוּבָל","עָמִית"]
-    episode_dir = p(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96")
+    episode_file_path = r"/tmp/Episode_96/Episode_96.wav"
+    speaker_names = ["יוּבָל"]
+    episode_dir = p("/tmp/Episode_96")
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")

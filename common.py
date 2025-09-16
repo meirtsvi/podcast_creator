@@ -2,11 +2,11 @@ from pathlib import Path as p
 import re
 import glob
 import os
-import requests
 import time
 
 from google import genai
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 
 from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 from url_to_md import get_markdown_from_url
@@ -21,8 +21,8 @@ def call_genai_api(prompt):
             logger.info(f"Calling GenAI API with prompt: {prompt}")
             response = client.models.generate_content(
                 #model="gemini-2.0-flash", contents=prompt
-               model="gemini-2.5-pro", contents=prompt
-            )
+               model="gemini-2.5-pro",
+               contents=prompt)
             ret = response.text
             break  # Success, exit the loop
         except Exception as e:
@@ -37,14 +37,18 @@ def call_genai_api(prompt):
     ret = response.text.strip()
     return ret
 
+def translate_text(text, target_language):
+    prompt = f"Translate the following text to {target_language}," \
+             "Provide only the translated text without any additional text. " \
+             "Keep as a plain text. no newlines:\n" + text
+    translated_text = call_genai_api(prompt)
+    return translated_text
+
 def create_episode_title(configuration: Configuration, titles: [], episode_number: int):
     prompt = configuration.prompt_for_episode_title_generation
     prompt += "\n".join(titles)
     title = "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
-    final_title = call_genai_api(f"Translate the following to {configuration.output_language}: "
-                                 f"'{title}'."
-                                 "Provide only the translated text without any additional text."
-                                 "Keep as a plain text. no newlines.")
+    final_title = translate_text(title, configuration.output_language)
     return final_title
 
 def create_episode_description(configuration: Configuration, urls: [], titles: []):
@@ -80,7 +84,7 @@ def create_source_list(source_type, batch_size=10) -> list:
                 if len(batch) >= batch_size:
                     urls.append(batch)
                     batch = []
-        
+
         # Add remaining URLs if any
         if batch:
             urls.append(batch)
@@ -114,7 +118,7 @@ def get_next_episode_number(configuration: Configuration) -> int:
     episode_folders = glob.glob(str(podcast_dir / "Episode_*"))
     if not episode_folders:
         return 1
-    
+
     # Extract numbers from folder names and find the highest
     episode_numbers = []
     for folder in episode_folders:
@@ -123,7 +127,7 @@ def get_next_episode_number(configuration: Configuration) -> int:
             episode_numbers.append(num)
         except ValueError:
             continue
-    
+
     return max(episode_numbers) + 1 if episode_numbers else 1
 
 def create_episode_folder(configuration: Configuration):
@@ -137,15 +141,39 @@ def create_episode_folder(configuration: Configuration):
     title_filename = episode_dir / EPISODE_TITLE_FILENAME
     with open(title_filename, 'w', encoding="utf-8") as f:
         f.write(configuration.episode_title)
-    
+
     # Write podcast episode description a file
     desc_file = episode_dir / EPISODE_DESC_FILENAME
     with open(desc_file, 'w', encoding="utf-8") as f:
         f.write(configuration.episode_description)
-    
+
     logger.info(f"Created episode folder {episode_dir} with {len(configuration.episode_urls)} URLs")
     return previous_summaries_file_path
 
+def extract_text_from_pdf(pdf_path):
+    """Extract text from a PDF file using PyPDF."""
+    try:
+        # Create PDF reader object
+        reader = PdfReader(pdf_path)
+
+        # Extract text from all pages
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+
+        return text.strip()
+
+    except Exception as e:
+        app_logger.error(
+            f"Error extracting text from PDF {pdf_path}: {str(e)}")
+        return ""
+
+
+def generate_title_from_text(text):
+    prompt = f"Generate a concise, informative title for the article text below. Don't print 'here is concise...', just give the title: {text[:500]}"
+    ret = call_genai_api(prompt)
+    return ret
+    
 def generate_title_from_url(url):
     try:
         md, response = get_markdown_from_url(url)
@@ -159,8 +187,8 @@ def generate_title_from_url(url):
             title, _, _ = extract_content_from_youtube(final_url)
             return True, title, final_url
         if "dl.dropbox.com" in url:
-            prompt = f"Generate a concise, informative title for the article text below. Don't print 'here is concise...', just give the title: {md}"
-            return True, call_genai_api(prompt), final_url
+            title = generate_title_from_text(md)
+            return True, title, final_url
         soup = BeautifulSoup(response.text, 'html.parser')
         if soup.title and soup.title.string:
             title = soup.title.string.strip()

@@ -13,3 +13,7 @@ html2text
 playwright
 yt_dlp
 mailersend
+langdetect
+pypdf
+audioop-lts
+

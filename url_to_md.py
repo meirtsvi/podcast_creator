@@ -49,16 +49,14 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
             '//div[contains(@class, "body")]//*['
             'self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6 or self::p or self::table'
             '] | '
-            '//div[@class="toptext"] | //div[contains(@class, "commtext")]'
-        )
+            '//div[@class="toptext"] | //div[contains(@class, "commtext")]')
 
     elements = tree.xpath(xpath_expr)
     if not elements:
         return None
 
     html_fragment = "<div>" + "".join(
-        html.tostring(el, encoding="unicode") for el in elements
-    ) + "</div>"
+        html.tostring(el, encoding="unicode") for el in elements) + "</div>"
 
     # Convert to Markdown with markdownify
     markdown_text = markdownify(html_fragment, heading_style="ATX")  # ATX means using `#` headers
@@ -72,7 +70,8 @@ def playwright_extract_to_markdown(url: str):
     and a mock response object with the status code.
     """
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
         page = browser.new_page()
         response = None
         html_content = ""
@@ -92,7 +91,9 @@ def playwright_extract_to_markdown(url: str):
 
     markdown = html2text.html2text(html_content) if html_content else None
     status = response.status if response else None
-    mock_response = SimpleNamespace(status_code=status, url=final_url, text=html_content)
+    mock_response = SimpleNamespace(status_code=status,
+                                    url=final_url,
+                                    text=html_content)
 
     return markdown, mock_response
 
@@ -102,16 +103,21 @@ def _fetch_and_extract(url, session, headers=None):
     returning the longest result.
     """
     try:
-        response = session.get(url, headers=headers, verify=False, allow_redirects=True, timeout=30)
+        response = session.get(url,
+                               headers=headers,
+                               verify=False,
+                               allow_redirects=True,
+                               timeout=30)
         response.raise_for_status()
         html_string = response.text
 
         if '<html' not in html_string.lower():
             html_string = f'<html><body>{html_string}</body></html>'
 
-
         # Method 1: trafilatura.extract
-        md_extract = extract(html_string, output_format="markdown", favor_recall=True)
+        md_extract = extract(html_string,
+                             output_format="markdown",
+                             favor_recall=True)
 
         # Method 2: html_to_markdown_fallback (manual extraction)
         md_fallback = html_to_markdown_fallback(html_string)
@@ -139,7 +145,6 @@ def get_markdown_from_url(url):
     if "youtube.com" in url or "youtu.be" in url:
         _, _, content = extract_content_from_youtube(url, lang='en')
         return content, SimpleNamespace(status_code=200, url=url)
-
     """
     Tries to get markdown from a URL by fetching with and without headers,
     and using two different extraction methods. Returns the best result.
@@ -243,7 +248,7 @@ if __name__ == "__main__":
         output_filename = f"url_processing_results_{get_deepest_folder(url_file)}.txt"
         with open(output_filename, 'w', encoding='utf-8') as results_file:
             results_file.write(f"Processing URLs from: {url_file}\n")
-            results_file.write("-"*50 + "\n")
+            results_file.write("-" * 50 + "\n")
 
             try:
                 with open(url_file, 'r', encoding='utf-8') as f:
