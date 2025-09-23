@@ -1,6 +1,7 @@
 import os
 import re
 import csv
+import concurrent.futures
 
 import dotenv
 from google import genai
@@ -56,7 +57,52 @@ def cleanup_text(podcast_text, configuration):
         podcast_text = configuration.man_speaker_name + ": " + podcast_text
     return podcast_text
 
-def generate_podcast_text(configuration: Configuration):
+def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3):
+    if num_of_retries > 1:
+        # Run generate_podcast_text_inner in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_of_retries) as executor:
+            futures = [executor.submit(generate_podcast_text_inner, configuration) for _ in range(num_of_retries)]
+            results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+        # Calculate target length based on configuration.episode_contents
+        target_length = sum(len(content) for content in configuration.episode_contents)
+        target_min = int(target_length * 0.65)
+        target_max = int(target_length * 0.85)
+
+        # Find the result that best matches 65-85% of target length
+        best_result = None
+        best_score = float('inf')
+
+        for result in results:
+            result_length = len(result)
+            if target_min <= result_length <= target_max:
+                # Calculate how close to the middle of the range (75%)
+                target_ideal = int(target_length * 0.75)
+                score = abs(result_length - target_ideal)
+                if score < best_score:
+                    best_score = score
+                    best_result = result
+
+        # If no result is in the target range, pick the one closest to 75%
+        if best_result is None:
+            target_ideal = int(target_length * 0.75)
+            best_result = min(results, key=lambda r: abs(len(r) - target_ideal))
+
+        podcast_text = best_result
+    else:
+        podcast_text = generate_podcast_text_inner(configuration)
+
+    with open(configuration.episode_folder / "podcast_text_original.txt", "w", encoding="utf-8") as f:
+        f.write(podcast_text)
+    podcast_text = cleanup_text(podcast_text, configuration)
+    podcast_text = apply_translations(podcast_text, configuration)
+    with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
+        f.write(podcast_text)
+
+    logger.info(f"Created podcast text from {podcast_text[:100]}... (length: {len(podcast_text)})")
+    return podcast_text
+
+def generate_podcast_text_inner(configuration: Configuration):
     logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
     prompt_suffix = "Use the following for the episode content:"
     prompt = configuration.prompt_for_podcast_generation
@@ -109,25 +155,29 @@ def generate_podcast_text(configuration: Configuration):
         else:
             logger.warning("Received empty chunk from the model, skipping.")
 
-    with open(configuration.episode_folder / "podcast_text_original.txt", "w", encoding="utf-8") as f:
-        f.write(podcast_text)
-    podcast_text = cleanup_text(podcast_text, configuration)
-    podcast_text = apply_translations(podcast_text, configuration)
-    with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
-        f.write(podcast_text)
-
-    logger.info(f"Created podcast text from {num_chunks} chunks: {podcast_text[:100]}... (length: {len(podcast_text)})")
     return podcast_text
 
 def main():
-    with open(r"c:\src\podcast_creator\sources\Episode_96\podcast_text_original.txt", "r", encoding="utf-8") as f:
-        podcast_text = f.read()
-        configuration = Configuration("hebrew")
-        configuration.set_episode_details("95", "פרק 95 - עדכוני טכנולוגיה 2024", "עדכוני טכנולוגיה 2024")
-        configuration.episode_folder = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_95"
-        configuration.podcast_name = "עדכוני טכנולוגיה"
-        podcast_text = cleanup_text(podcast_text, configuration)
-        new_podcast_text = apply_translations(podcast_text, configuration)
-        print(new_podcast_text)
+    from pathlib import Path as p
+
+    configuration = Configuration("hebrew")
+    configuration.set_episode_details("95", "פרק 95 - עדכוני טכנולוגיה 2024", "עדכוני טכנולוגיה 2024")
+    configuration.episode_folder = p("/tmp/ep/")
+    configuration.podcast_name = "עדכוני טכנולוגיה"
+    with open("/tmp/ep/podcast_content.txt", "r", encoding="utf-8") as f:
+        article_text = f.readlines()
+        configuration.episode_contents = article_text
+    configuration.set_prompts(is_single_url=True)
+    podcast_text = generate_podcast_text(configuration)
+    print(podcast_text)
+    # with open(r"c:\src\podcast_creator\sources\Episode_96\podcast_text_original.txt", "r", encoding="utf-8") as f:
+    #     podcast_text = f.read()
+    #     configuration = Configuration("hebrew")
+    #     configuration.set_episode_details("95", "פרק 95 - עדכוני טכנולוגיה 2024", "עדכוני טכנולוגיה 2024")
+    #     configuration.episode_folder = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_95"
+    #     configuration.podcast_name = "עדכוני טכנולוגיה"
+    #     podcast_text = cleanup_text(podcast_text, configuration)
+    #     new_podcast_text = apply_translations(podcast_text, configuration)
+    #     print(new_podcast_text)
 if __name__ == "__main__":
     main()

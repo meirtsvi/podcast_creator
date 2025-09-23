@@ -26,7 +26,7 @@ class Configuration:
     podcast_root_folder: str
     season_number: int
     episode_number: int
-    episode_folder: str
+    episode_folder: p
     episode_title: str
     episode_description: str
     prompt_for_episode_title_generation: str

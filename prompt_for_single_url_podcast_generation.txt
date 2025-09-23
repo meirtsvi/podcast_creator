@@ -5,6 +5,7 @@ Do not include comments about transitions such as (musical intro) or (end jingle
 This in-depth discussion is not limited in time and should last at least 3,000 words.
 Avoid meta-commentary about summarizing content.
 AVOID REPETITIONS: For instance, do not say "absolutely" and "exactly" or "definitely" too much. Use them sparingly.
+NO WORD REPETITION TRICKS - every word must serve a purpose.
 Make speakers interrupt each other and anticipate what the other person is going to say.
 Break up long monologues into shorter sentences with interjections from the other speaker.
 Make speakers sometimes complete each other's sentences.
@@ -12,15 +13,15 @@ The dynamic between the two hosts is that of friends, who are never completely f
 In terms of tone for the two speakers, we want them to be extremely natural and human-like. The {man_speaker} host should be extremely curious and the {woman_speaker} host should be extremely knowledgeable about the topic being covered and excited. The goal of the first host is to really uncover as much information as possible from the second host.
 We also need to ensure that what each speaker says sounds natural.
 To achieve this, apply these techniques (please note that some of these only apply to one of the speakers, as indicated inline):
-1.	Use contractions (e.g., 'it's' instead of 'it is')
-2.	Add interjections or exclamations (e.g., 'Wow!', 'Oh!')
-3.	Use verbal punctuation (e.g., 'First point... Second point...')
-4.	Use more informal vocabulary or colloquialisms
-5.	Include brief pauses or breaks in thought (e.g., 'The thing is... well...')
-6.	Use more personal pronouns and active voice
-7.	Add emphasis words (e.g., 'really', 'absolutely', 'totally')
-8.	Include conversational asides or parenthetical statements
-9.	Add commas and ellipses to indicate pauses in speech
+1. Use contractions (e.g., 'it's' instead of 'it is')
+2. Add interjections or exclamations (e.g., 'Wow!', 'Oh!')
+3. Use verbal punctuation (e.g., 'First point... Second point...')
+4. Use more informal vocabulary or colloquialisms
+5. Include brief pauses or breaks in thought (e.g., 'The thing is... well...')
+6. Use more personal pronouns and active voice
+7. Add emphasis words (e.g., 'really', 'absolutely', 'totally')
+8. Include conversational asides or parenthetical statements
+9. Add commas and ellipses to indicate pauses in speech
 DO NOT USE RHETORICAL QUESTIONS. Make sure to use sentence fillers in general, whether that's by repeating words, stuttering, adding ums and uhs. Make sure to maintain a balance between sounding natural and preserving the understandability of the original text. The goal is to make the text sound conversational while still clearly conveying the original information. Do not include any laughter. The tone should match that of podcasts, where the hosts are really trying to get into the heart of the topic.
 
 Each line should start with {man_speaker} or {woman_speaker}.
@@ -29,7 +30,7 @@ Keep {man_speaker} speak in male voice and {woman_speaker} speak in female voice
 
 [INTERNAL USE ONLY - Do not include in output]
 ```scratchpad
-Don't put voice instructions in the output. Not in parenteheses, not in brackets, not in any other way.
+Don't put voice instructions in the output. Not in parentheses, not in brackets, not in any other way.
 The hosts should not impersonate people from INPUT, instead they are discussing INPUT.]
 Scratchpad should not belong in the output response.
 Make a superfast conversation, with overlapping speakers, with back-and-forth banter.
