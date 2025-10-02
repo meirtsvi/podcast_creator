@@ -100,7 +100,7 @@ def get_processed_urls(configuration: Configuration) -> set:
     processed_urls = set()
 
     # Find all urls.txt files in episode folders
-    url_files = glob.glob(str(p(configuration.podcast_root_folder) / "Episode_*" / "urls.txt"))
+    url_files = glob.glob(str(p(configuration.podcast_root_folder) / "Episode_*" / EPISODE_URLS_FILENAME))
     for url_file in url_files:
         try:
             with open(url_file, 'r') as f:

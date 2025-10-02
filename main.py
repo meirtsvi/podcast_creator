@@ -195,6 +195,7 @@ def cleanup_existing_links(langs):
         processed_urls = {url.rstrip('/') for url in processed_urls}
         per_lang_processed_urls[lang] = processed_urls
     common_processed_urls = set.intersection(*per_lang_processed_urls.values())
+    common_processed_urls = {url.replace('&e=1&dl=0', '&dl=0') for url in common_processed_urls}
     with open(SINGLE_URL_LINKS_FILEPATH, "r", encoding="utf-8") as f:
         existing_single_urls = set(line.strip().split(',', 1)[0].strip() for line in f if line.strip())
         existing_single_urls = {url.rstrip('/') for url in existing_single_urls}
