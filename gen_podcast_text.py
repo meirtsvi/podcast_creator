@@ -55,7 +55,7 @@ def cleanup_text(podcast_text, configuration):
     if not podcast_text.startswith(configuration.man_speaker_name) and \
        not podcast_text.startswith(configuration.woman_speaker_name):
         podcast_text = configuration.man_speaker_name + ": " + podcast_text
-    podcast_text = re.sub(rf'(?<!^)(?<!\n)({configuration.man_speaker_name}|{configuration.woman_speaker_name})', r'\n\1', podcast_text)
+    podcast_text = re.sub(rf'(?<!^)(?<!\n)({configuration.man_speaker_name}:|{configuration.woman_speaker_name}:)', r'\n\1', podcast_text)
 
     return podcast_text
 
