@@ -19,10 +19,10 @@ dotenv.load_dotenv()
 # Define available API keys and tracking variables
 GEMINI_API_KEYS = [
     os.environ.get("GEMINI_API_KEY_EV"),
-    os.environ.get("GEMINI_API_KEY_IAC"),
-    os.environ.get("GEMINI_API_KEY_WORK"),
+#    os.environ.get("GEMINI_API_KEY_WORK"),
     os.environ.get("GEMINI_API_KEY_VAZAZON"),
     os.environ.get("GEMINI_API_KEY_PERSONAL"),
+    os.environ.get("GEMINI_API_KEY_IAC"),
 ]
 # Remove None values in case any environment variables aren't set
 GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
@@ -219,6 +219,10 @@ def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
 
 def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names,
                                              hosts_gender=None, tone=None):
+    # Reset gemini API key index
+    global current_key_index
+    current_key_index = 0
+
     if hosts_gender is None:
         hosts_gender = ['Male', 'Female']
     if tone is None:
