@@ -86,9 +86,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
             chunk_count = 0
 
             # Refresh client with the current API key
-            client = genai.Client(
-                api_key=get_current_api_key(),
-            )
+            client = genai.Client(api_key=get_current_api_key())
 
             # Ensure the stream is actually being iterated
             stream_iterator = client.models.generate_content_stream(
@@ -133,8 +131,8 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 raise  # Re-raise the last error
 
 def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
+    """Splits text into chunks for two-speaker dialogue mode."""
     SEPARATOR = "\n"
-    """Splits text into chunks, trying to respect sentence boundaries."""
     chunks = []
     current_chunk = ""
     # Simple split, can be improved with smarter tokenization
@@ -151,8 +149,8 @@ def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
         chunks.append(current_chunk.strip())
     return chunks
 
-
 def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
+    """Splits text into chunks, trying to respect sentence boundaries."""
     for host_name in host_names:
         if text.startswith(host_name):
             return split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk)
@@ -190,7 +188,6 @@ def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
     # Step 2: Group sentences into chunks based on max_chars_per_chunk
     chunks = []
     current_chunk = ""
-
     for sentence in sentences:
         # Calculate the length if we add this sentence
         if current_chunk:
@@ -214,7 +211,6 @@ def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
     # Add the last chunk if it's not empty
     if current_chunk:
         chunks.append(current_chunk.strip())
-
     return chunks
 
 def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names,
@@ -227,6 +223,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
         hosts_gender = ['Male', 'Female']
     if tone is None:
         tone = "Conversational"
+
     logger.info("Generating podcast episode audio from text...")
 
     model = "gemini-2.5-flash-preview-tts"
@@ -236,6 +233,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
 
     podcast_text = re.sub(r'\n+', '\n', podcast_text).strip()
     chunks = split_text_into_chunks(podcast_text, speaker_names)
+
     for i, chunk_text in enumerate(chunks):
         logger.info(chunk_text)
         chunk_text = ("Read the following script as natural-sounding speech. "
@@ -301,20 +299,16 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
         if len(speaker_names) == 1:
             generate_content_config = types.GenerateContentConfig(
                 temperature=1,
-                response_modalities=[
-                    "AUDIO",
-                ],
+                response_modalities=["AUDIO"],
                 speech_config=types.SpeechConfig(
                     voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice1
-                        )
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice1)
                     )
                 ),
             )
         else:
             generate_content_config = types.GenerateContentConfig(
-                temperature=0.5,
+                temperature=1,
                 response_modalities=[
                     "audio",
                 ],
@@ -325,16 +319,16 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                                 speaker=speaker_names[0],
                                 voice_config=types.VoiceConfig(
                                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                        voice_name=voice1,
-                                    ),
+                                        voice_name=voice1
+                                    )
                                 ),
                             ),
                             types.SpeakerVoiceConfig(
                                 speaker=speaker_names[1],
                                 voice_config=types.VoiceConfig(
                                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                        voice_name=voice2,
-                                    ),
+                                        voice_name=voice2
+                                    )
                                 ),
                             ),
                         ]
@@ -412,6 +406,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                 logger.error(f"Error removing file {file}: {e}")
 
 def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
+    """Convert inline audio bytes into a proper WAV file buffer."""
     parameters = parse_audio_mime_type(mime_type)
     bits_per_sample = parameters["bits_per_sample"]
     sample_rate = parameters["rate"]
@@ -444,12 +439,9 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
 
 def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     """Parses bits per sample and rate from an audio MIME type string.
-
     Assumes bits per sample is encoded like "L16" and rate as "rate=xxxxx".
-
     Args:
         mime_type: The audio MIME type string (e.g., "audio/L16;rate=24000").
-
     Returns:
         A dictionary with "bits_per_sample" and "rate" keys. Values will be
         integers if found, otherwise None.
@@ -477,11 +469,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def main():
-    with open("/tmp/3.txt", "r", encoding='utf-8') as f:
+    with open(r'c:\\tmp\\3.txt', "r", encoding='utf-8') as f:
         podcast_text = f.read()
-    episode_file_path = r"/tmp/Episode_96/Episode_96.wav"
-    speaker_names = ["יוּבָל"]
-    episode_dir = p("/tmp/Episode_96")
+    episode_file_path = r"c:\\tmp\\Episode_96\\Episode_96.wav"
+    speaker_names = ["יוּבָל", "עָמִית"]
+    episode_dir = p("c:\\tmp\\Episode_96")
     logger.info("Starting podcast episode generation...")
     generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names)
     logger.info("Podcast episode generation completed.")
