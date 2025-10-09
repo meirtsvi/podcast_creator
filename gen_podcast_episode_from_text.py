@@ -4,6 +4,7 @@ import re
 import struct
 import time
 from pathlib import Path as p
+import threading
 
 from google import genai
 from google.genai import types
@@ -32,6 +33,7 @@ def get_next_api_key():
     """Rotate to the next available API key."""
     global current_key_index
     current_key_index = (current_key_index + 1) % len(GEMINI_API_KEYS)
+    logger.debug(f"Current API key is {GEMINI_API_KEYS[current_key_index][:8]}")
     return GEMINI_API_KEYS[current_key_index]
 
 def get_current_api_key():
@@ -64,18 +66,21 @@ def merge_wav_files(input_files, output_file):
             with wave.open(str(input_file), 'rb') as w:
                 output.writeframes(w.readframes(w.getnframes()))
 
-def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1):
-    """Generate content with retry mechanism.
+def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1, timeout=300):
+    """
+    Generate content with retry mechanism and total timeout per streaming call.
+    If a timeout occurs, rotate API key and retry.
 
     Args:
-        model: The model name
+        model: The model name (e.g., "gemini-2.5-pro-preview-tts")
         contents: The content to generate
         config: The generation config
-        max_retries: Maximum number of retry attempts
-        initial_delay: Initial delay between retries in seconds
+        max_retries: Maximum number of retry attempts (rotating API keys if needed)
+        initial_delay: Initial delay between retries (exponential backoff)
+        timeout: Max seconds to wait for the stream to finish before giving up
 
-    Returns:
-        The generated content or None if all retries failed
+    Yields:
+        Stream chunks, or raises after all retries fail.
     """
     global current_key_index
     delay = initial_delay
@@ -83,23 +88,49 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
     for attempt in range(max_retries):
         logger.info(f"Attempt {attempt + 1}/{max_retries} for generating content...")
         try:
-            chunk_count = 0
-
-            # Refresh client with the current API key
             client = genai.Client(api_key=get_current_api_key())
-
-            # Ensure the stream is actually being iterated
             stream_iterator = client.models.generate_content_stream(
                 model=model,
                 contents=contents,
                 config=config,
             )
-            for chunk in stream_iterator:
-                chunk_count += 1
-                # logger.debug(f"  Received chunk {chunk_count}...") # Uncomment for very verbose logging
-                yield chunk
-            logger.info(f"  Successfully received {chunk_count} chunks.")
-            return  # Success, exit the function
+
+            # Run the streaming iterator in a separate thread to allow timeout
+            chunks = []
+            exception_holder = []
+
+            def consume():
+                try:
+                    for chunk in stream_iterator:
+                        chunks.append(chunk)
+                except Exception as e:
+                    exception_holder.append(e)
+
+            t = threading.Thread(target=consume, daemon=True)
+            t.start()
+            t.join(timeout)
+
+            if t.is_alive():
+                logger.error(f"  Timeout after {timeout} seconds — rotating API key...")
+                # Move to next API key before retrying
+                get_next_api_key()
+                # Abandon the thread (daemon), don't join forever
+                continue  # retry with next key
+
+            # If an exception occurred inside the thread, re-raise it here
+            if exception_holder:
+                raise exception_holder[0]
+
+            # If we got chunks, yield them and return
+            if chunks:
+                logger.info(f"  Successfully received {len(chunks)} chunks.")
+                for c in chunks:
+                    yield c
+                return
+
+            # No chunks and no errors? Retry
+            logger.error("  No chunks received (empty stream). Retrying...")
+            get_next_api_key()
 
         except ServerError as se:
             logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
@@ -109,26 +140,23 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1)
                 delay *= 2
             else:
                 logger.error(f"  All {max_retries} attempts failed due to ServerError.")
-                raise  # Re-raise the last error
+                raise
 
         except Exception as e:
             error_message = str(e).lower()
             logger.error(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
 
-            # Check if this is a rate limit error (HTTP 429)
             if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
-                logger.warning(f"  Rate limit exceeded. Rotating to next API key...")
-                # Get the next API key
-                next_key = get_next_api_key()
-                logger.info(f"  Switched to a different API key {next_key[1:10]}. Retrying...")
-            elif attempt < max_retries - 1:
+                logger.warning("  Rate limit exceeded. Rotating to next API key...")
+                get_next_api_key()
+
+            if attempt < max_retries - 1:
                 logger.warning(f"  Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2
-
-            if attempt == max_retries:
+            else:
                 logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
-                raise  # Re-raise the last error
+                raise
 
 def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
     """Splits text into chunks for two-speaker dialogue mode."""
@@ -255,7 +283,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
             if tone == "Energetic":
                 voice1 = "Orus"
             elif tone == "Conversational":
-                voice1 = "Puck"
+                voice1 = "Charon"
             elif tone == "Academic":
                 voice1 = "Sadaltager"
             else:
@@ -278,7 +306,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                 elif tone == "Conversational":
                     voice2 = "Fenrir"
                 elif tone == "Academic":
-                    voice2 = "Charon"
+                    voice2 = "Puck"
                 else:
                     raise ValueError(f"Unknown tone: {tone}")
             else:
