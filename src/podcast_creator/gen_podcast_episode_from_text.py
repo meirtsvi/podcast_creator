@@ -12,8 +12,8 @@ import dotenv
 import wave
 from google.genai.errors import ServerError
 
-from audio import detect_silence_in_wav
-from logger import logger
+from podcast_creator.audio import detect_silence_in_wav
+from podcast_creator.logger import logger
 
 dotenv.load_dotenv()
 

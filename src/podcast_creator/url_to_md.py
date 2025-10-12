@@ -10,13 +10,10 @@ from markdownify import markdownify
 import html2text
 from playwright.sync_api import sync_playwright
 from types import SimpleNamespace
-
-
-from logger import logger
-
 from pathlib import Path
 
-from youtube_content_extractor import extract_content_from_youtube
+from podcast_creator.logger import logger
+from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 
 
 def get_deepest_folder(path):

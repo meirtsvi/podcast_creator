@@ -11,3 +11,5 @@ sources/**
 *.wav
 __pycache__/
 *.pyc
+dist/
+podcast_creator.egg-info/

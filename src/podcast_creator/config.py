@@ -2,8 +2,8 @@ import dotenv
 import os
 from pathlib import Path as p
 
-from logger import logger
-from utils import read_file_content
+from podcast_creator.logger import logger
+from podcast_creator.utils import read_file_content
 
 dotenv.load_dotenv()
 
@@ -41,15 +41,18 @@ class Configuration:
     episode_audio_filename: str
     man_speaker_name: str
     woman_speaker_name: str
-    podcast_tone: str
+    podcast_tone_single_host: str
+    podcast_tone_two_hosts: str
     podcast_name: str
     text_direction: str
     episode_contents: str
+    hosts: list
 
     def __init__(self, language: str):
         self.output_language = language
         self.podcast_root_folder = f'{os.environ.get("OUTPUT_FOLDER_PREFIX", "")}_{language}'
         self.season_number = 1
+        self.hosts = ['male', 'female']
         if language == "hebrew":
             self.transistor_show_id = "64672"
             self.transistor_show_identifier = "335a5183-08d0-48bf-835c-ebf1854db9d4"
@@ -57,13 +60,31 @@ class Configuration:
             self.woman_speaker_name = "עָמִית"
             self.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
             self.text_direction = "right-to-left"
-            self.podcast_tone = """
+            self.podcast_tone_single_host = f"""
+                הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי
+                Include natural speech elements (filler words, feedback responses).
+                NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
+                In terms of tone make it extremely natural and human-like. 
+                The host should be extremely curious and extremely knowledgeable about the topic being covered and excited. 
+                The goal of is to really uncover as much information as possible.
+                We also need to ensure that what the speaker says sounds natural.
+                To achieve this, apply these techniques:
+                1. Use contractions (e.g., 'it's' instead of 'it is')
+                2. Use verbal punctuation (e.g., 'First point... Second point...')
+                3. Use more informal vocabulary or colloquialisms
+                4. Include brief pauses or breaks in thought (e.g., 'The thing is... well...')
+                5. Use more personal pronouns and active voice
+                6. Add commas and ellipses to indicate pauses in speech
+               """
+            self.podcast_tone_two_hosts = f"""
                 ייצר קצב דיבור כמו בפודקאסט אמיתי.
                 Introduce disfluencies to make it sound like a real conversation.
                 Make speakers react to what the other person is saying using phrases like, "Oh?" and "yeah?".
                 Include natural speech elements (filler words, feedback responses).
                 NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
-                In terms of tone for the two speakers, we want them to be extremely natural and human-like. The {man_speaker} host should be extremely curious and the {woman_speaker} host should be extremely knowledgeable about the topic being covered and excited. The goal of the first host is to really uncover as much information as possible from the second host.
+                In terms of tone for the two speakers, we want them to be extremely natural and human-like. 
+                The {self.man_speaker_name} host should be extremely curious and the {self.woman_speaker_name} host should be extremely knowledgeable about the topic being covered and excited. 
+                The goal of the first host is to really uncover as much information as possible from the second host.
                 We also need to ensure that what each speaker says sounds natural.
                 To achieve this, apply these techniques (please note that some of these only apply to one of the speakers, as indicated inline):
                 1. Use contractions (e.g., 'it's' instead of 'it is')
@@ -83,13 +104,31 @@ class Configuration:
             self.woman_speaker_name = "Amit"
             self.podcast_name = "Tech Updates"
             self.text_direction = "left-to-right"
-            self.podcast_tone = """
+            self.podcast_tone_single_host = f"""
+                הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי
+                Include natural speech elements (filler words, feedback responses).
+                NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
+                In terms of tone make it extremely natural and human-like. 
+                The host should be extremely curious and extremely knowledgeable about the topic being covered and excited. 
+                The goal of is to really uncover as much information as possible.
+                We also need to ensure that what the speaker says sounds natural.
+                To achieve this, apply these techniques:
+                1. Use contractions (e.g., 'it's' instead of 'it is')
+                2. Use verbal punctuation (e.g., 'First point... Second point...')
+                3. Use more informal vocabulary or colloquialisms
+                4. Include brief pauses or breaks in thought (e.g., 'The thing is... well...')
+                5. Use more personal pronouns and active voice
+                6. Add commas and ellipses to indicate pauses in speech
+               """
+            self.podcast_tone_two_hosts = f"""
                 הוסף הפסקות טבעיות (אמממ, הא, מממ) וקצב דיבור כמו בפודקאסט אמיתי
                 Introduce disfluencies to make it sound like a real conversation.
                 Make speakers react to what the other person is saying using phrases like, "Oh?" and "yeah?".
                 Include natural speech elements (filler words, feedback responses).
                 NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering. NOT TOO MUCH (up to 5 times), just enough to make it sound like a real conversation.
-                In terms of tone for the two speakers, we want them to be extremely natural and human-like. The {man_speaker} host should be extremely curious and the {woman_speaker} host should be extremely knowledgeable about the topic being covered and excited. The goal of the first host is to really uncover as much information as possible from the second host.
+                In terms of tone for the two speakers, we want them to be extremely natural and human-like. 
+                The {self.woman_speaker_name} host should be extremely curious and the {self.woman_speaker_name} host should be extremely knowledgeable about the topic being covered and excited. 
+                The goal of the first host is to really uncover as much information as possible from the second host.
                 We also need to ensure that what each speaker says sounds natural.
                 To achieve this, apply these techniques (please note that some of these only apply to one of the speakers, as indicated inline):
                 1. Use contractions (e.g., 'it's' instead of 'it is')
@@ -109,7 +148,8 @@ class Configuration:
             self.woman_speaker_name = "Zhenia"
             self.podcast_name = "Новости Технологий"
             self.text_direction = "left-to-right"
-            self.podcast_tone = "Никогда не используй слово 'ну'!"
+            self.podcast_tone_single_host = "Никогда не используй слово 'ну'!"
+            self.podcast_tone_two_hosts = "Никогда не используй слово 'ну'!"
         else:
             logger.error(f"Cannot set transistor show id for language: {language}")
             exit(1)

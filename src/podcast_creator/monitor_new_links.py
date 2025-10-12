@@ -1,12 +1,13 @@
-from logger import logger
-from config import SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
-from main import process_languages
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import os
 import json
 import dotenv
+
+from podcast_creator.logger import logger
+from podcast_creator.config import SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
+from podcast_creator.main import process_languages
 
 dotenv.load_dotenv()
 

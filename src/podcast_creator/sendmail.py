@@ -1,8 +1,9 @@
 import os
 import dotenv
-from logger import logger
 
 from mailersend import MailerSendClient, EmailRequest
+
+from podcast_creator.logger import logger
 
 dotenv.load_dotenv()
 api_key = os.getenv('MAILERSEND_API_KEY')

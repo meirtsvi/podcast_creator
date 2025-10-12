@@ -7,20 +7,20 @@ from utils import read_file_content
 
 os.environ["PYTHONHTTPSVERIFY"] = "0"
 
-from common import (
+from podcast_creator.common import (
     create_episode_title, create_episode_description,
     create_episode_folder, get_processed_urls, get_next_episode_number,
     generate_title_from_url, get_episodes_with_missing_audio,
 )
 
-from config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME, \
+from podcast_creator.config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME, \
     SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
-from audio import add_pre_and_post_audio
-from gen_podcast_text import generate_podcast_text
-from gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
-from transistor import upload_new_podcast_episode
-from url_to_md import get_markdown_from_url
-from logger import logger
+from podcast_creator.audio import add_pre_and_post_audio
+from podcast_creator.gen_podcast_text import generate_podcast_text
+from podcast_creator.gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
+from podcast_creator.transistor import upload_new_podcast_episode
+from podcast_creator.url_to_md import get_markdown_from_url
+from podcast_creator.logger import logger
 
 def process_batch(configuration: Configuration, batch_number: int, episode_number: int):
     urls = configuration.episode_urls

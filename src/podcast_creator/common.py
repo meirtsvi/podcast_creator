@@ -8,10 +8,10 @@ from google import genai
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
-from config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
-from url_to_md import get_markdown_from_url
-from logger import logger
-from youtube_content_extractor import extract_content_from_youtube
+from podcast_creator.config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
+from podcast_creator.url_to_md import get_markdown_from_url
+from podcast_creator.logger import logger
+from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 
 def call_genai_api(prompt):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -39,8 +39,9 @@ def call_genai_api(prompt):
 
 def translate_text(text, target_language):
     prompt = f"Translate the following text to {target_language}," \
-             "Provide only the translated text without any additional text. " \
-             "Keep as a plain text. no newlines:\n" + text
+             f"Provide only the translated text without any additional text." \
+             f"Don't create empty lines. " \
+             f"Keep as a plain text. no newlines.:\n" + text
     translated_text = call_genai_api(prompt)
     return translated_text
 

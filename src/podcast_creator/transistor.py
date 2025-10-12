@@ -3,11 +3,10 @@ import requests
 import dotenv
 from pathlib import Path as p
 
-import sendmail
-from logger import logger
-
-from config import Configuration
-from utils import read_file_content
+import podcast_creator.sendmail
+from podcast_creator.logger import logger
+from podcast_creator.config import Configuration
+from podcast_creator.utils import read_file_content
 
 dotenv.load_dotenv()
 

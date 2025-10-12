@@ -1,4 +1,4 @@
-from logger import logger
+from podcast_creator.logger import logger
 from pydub import AudioSegment, silence
 
 def add_pre_and_post_audio(podcast_mp3_path):

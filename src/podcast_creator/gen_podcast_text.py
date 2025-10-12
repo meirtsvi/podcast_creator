@@ -6,9 +6,9 @@ import concurrent.futures
 import dotenv
 from google import genai
 from google.genai import types
-from logger import logger
 
-from config import Configuration
+from podcast_creator.logger import logger
+from podcast_creator.config import Configuration
 
 dotenv.load_dotenv()
 
@@ -43,8 +43,8 @@ def apply_translations(podcast_text, configuration):
         podcast_text = "\n".join(lines)
         return podcast_text
 
-
-def cleanup_text(podcast_text, configuration):
+def cleanup_text(podcast_text: str, configuration: Configuration):
+    logger.info(f"Cleaning up text. podcast_text: {podcast_text}")
     if podcast_text.startswith("("):
         podcast_text = podcast_text.split("\n", 1)[1].strip()
     podcast_text = podcast_text.strip().replace("**", "")
@@ -52,12 +52,32 @@ def cleanup_text(podcast_text, configuration):
     podcast_text = podcast_text.replace("יוּבָב:", f"{configuration.man_speaker_name}:")
     podcast_text = re.sub("<[^>]+>", "", podcast_text)  # Remove HTML tags
     podcast_text = podcast_text.replace("(Outro music begins)", "")
+    podcast_text = podcast_text.replace("(Podcast intro music fades in and then fades to a background hum)", "")
+    podcast_text = podcast_text.replace("(Podcast outro music fades in)", "")
+    podcast_text = podcast_text.replace("(Podcast intro music fades in and then fades to background)", "")
+    podcast_text = re.sub("^[\n]+", "", podcast_text)  # Remove empty lines
+    podcast_text = re.sub("\n\n", "\n", podcast_text)
     if not podcast_text.startswith(configuration.man_speaker_name) and \
        not podcast_text.startswith(configuration.woman_speaker_name):
         podcast_text = configuration.man_speaker_name + ": " + podcast_text
     podcast_text = re.sub(rf'(?<!^)(?<!\n)({configuration.man_speaker_name}:|{configuration.woman_speaker_name}:)', r'\n\1', podcast_text)
-
+    logger.info(f"Cleaned up text. podcast_text: {podcast_text}")
     return podcast_text
+
+def process_conditional_text(content, conditions):
+    for condition_name, include in conditions.items():
+        pattern = f'<!--CONDITIONAL:{condition_name}-->(.*?)<!--END:{condition_name}-->'
+
+        if include:
+            # Keep the content but remove the markers
+            content = re.sub(pattern, r'\1', content, flags=re.DOTALL)
+        else:
+            # Remove the entire conditional block
+            content = re.sub(pattern, '', content, flags=re.DOTALL)
+
+    # Clean up any remaining empty lines
+    content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
+    return content
 
 def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3):
     if num_of_retries > 1:
@@ -106,16 +126,35 @@ def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3)
 
 def generate_podcast_text_inner(configuration: Configuration):
     logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
-    prompt_suffix = "Use the following for the episode content:"
-    prompt = configuration.prompt_for_podcast_generation
-    prompt += "Podcast name: " + configuration.podcast_name + ".\n"
+
+    if len(configuration.hosts) > 1:
+        conditions = { 'TWO_HOSTS': True, 'SINGLE_HOST': False }
+    else:
+        conditions = { 'TWO_HOSTS': False, 'SINGLE_HOST': True}
+    prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
+    prompt = prompt_for_podcast_generation + "\n"
     prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
-    prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone)
+    prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
+    if len(configuration.hosts) > 1:
+        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_two_hosts)
+    else:
+        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_single_host)
     prompt = prompt.replace("{podcast_name}", configuration.podcast_name)
+    if configuration.episode_number != -1:
+        prompt += (f"Structure the episode as follows: Start by {configuration.man_speaker_name} announcing podcast name {configuration.podcast_name}, "
+                   f"the episode number ({configuration.episode_number}), "
+                   f"then remind the listener to follow the podcast on the podcast app so they can get new episodes,"
+                   f"then do an introduction with the hosts’ names, and only then continue with a smooth and engaging broadcast."
+                   f"Podcast name: {configuration.podcast_name}")
+    else:
+        prompt += "DON'T annouce and DON'T mention podcast name, host names, episode number."
+
     lang_output_prompt = "Create the episode in " + configuration.output_language + " language."
     if configuration.output_language == "hebrew":
         lang_output_prompt += "כתוב את הטקסט בכתיב מלא."
-    input = f"This is episode {configuration.episode_number}.\n\n{prompt}.\n\n{lang_output_prompt}.{prompt_suffix}"
+
+    prompt_suffix = "Use the following for the episode content:"
+    input = f"{prompt}.\n{lang_output_prompt}.{prompt_suffix}"
     with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
         f.write(input)
     with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
@@ -163,23 +202,16 @@ def main():
     from pathlib import Path as p
 
     configuration = Configuration("hebrew")
-    configuration.set_episode_details("95", "פרק 95 - עדכוני טכנולוגיה 2024", "עדכוני טכנולוגיה 2024")
+    configuration.set_episode_details(episode_number=95, episode_title="מטהורס", episode_description="עדכונים על מטהורס")
     configuration.episode_folder = p("/tmp/ep/")
-    configuration.podcast_name = "עדכוני טכנולוגיה"
+    configuration.hosts = ['female', 'male']
+    configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
     with open("/tmp/ep/podcast_content.txt", "r", encoding="utf-8") as f:
         article_text = f.readlines()
         configuration.episode_contents = article_text
     configuration.set_prompts(is_single_url=True)
-    podcast_text = generate_podcast_text(configuration)
-    print(podcast_text)
-    # with open(r"c:\src\podcast_creator\sources\Episode_96\podcast_text_original.txt", "r", encoding="utf-8") as f:
-    #     podcast_text = f.read()
-    #     configuration = Configuration("hebrew")
-    #     configuration.set_episode_details("95", "פרק 95 - עדכוני טכנולוגיה 2024", "עדכוני טכנולוגיה 2024")
-    #     configuration.episode_folder = r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_95"
-    #     configuration.podcast_name = "עדכוני טכנולוגיה"
-    #     podcast_text = cleanup_text(podcast_text, configuration)
-    #     new_podcast_text = apply_translations(podcast_text, configuration)
-    #     print(new_podcast_text)
+    podcast_text = generate_podcast_text(configuration, 1)
+    print(f"Podcast text: {podcast_text}")
+
 if __name__ == "__main__":
     main()
