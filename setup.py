@@ -9,4 +9,5 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires="==3.11.14",
+    data_files=[('', ['*.txt', '*.csv' ])],
 )
