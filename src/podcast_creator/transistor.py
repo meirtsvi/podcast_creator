@@ -3,7 +3,7 @@ import requests
 import dotenv
 from pathlib import Path as p
 
-import podcast_creator.sendmail
+from  podcast_creator.sendmail import send_email
 from podcast_creator.logger import logger
 from podcast_creator.config import Configuration
 from podcast_creator.utils import read_file_content
@@ -23,7 +23,7 @@ def upload_new_podcast_episode(configuration: Configuration):
     message = f"New podcast {configuration.output_language} episode #{configuration.episode_number} uploaded to Transistor.fm"
     logger.info(message)
     drafts_link = f"https://dashboard.transistor.fm/shows/{configuration.transistor_show_identifier}/episodes"
-    sendmail.send_email(send_to=os.getenv("MAIL_SEND_TO"), subject=message, body=drafts_link)
+    send_email(send_to=os.getenv("MAIL_SEND_TO"), subject=message, body=drafts_link)
 
 
 def authorize_audio_upload(audio_file_path):

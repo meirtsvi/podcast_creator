@@ -33,7 +33,7 @@ def get_next_api_key():
     """Rotate to the next available API key."""
     global current_key_index
     current_key_index = (current_key_index + 1) % len(GEMINI_API_KEYS)
-    logger.debug(f"Current API key is {GEMINI_API_KEYS[current_key_index][:8]}")
+    logger.info(f"Current API key is {GEMINI_API_KEYS[current_key_index][:8]}")
     return GEMINI_API_KEYS[current_key_index]
 
 def get_current_api_key():
