@@ -1,6 +1,11 @@
 from podcast_creator.logger import logger
 from pydub import AudioSegment, silence
 
+def convert_wav_to_mp3(audio_file_path):
+    logger.info(f"Converting {audio_file_path} WAV to MP3...")
+    audio = AudioSegment.from_file(audio_file_path)
+    audio.export(audio_file_path, format="mp3")
+
 def add_pre_and_post_audio(podcast_mp3_path):
     logger.info("Adding pre and post audio to podcast...")
     # Load MP3 files

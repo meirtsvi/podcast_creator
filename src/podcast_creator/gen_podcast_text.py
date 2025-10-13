@@ -79,6 +79,12 @@ def process_conditional_text(content, conditions):
     content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
     return content
 
+def count_words(content: list):
+    count = 0
+    for line in content:
+        count += len(line.split())
+    return count
+
 def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3):
     if num_of_retries > 1:
         # Run generate_podcast_text_inner in parallel
@@ -133,6 +139,9 @@ def generate_podcast_text_inner(configuration: Configuration):
         conditions = { 'TWO_HOSTS': False, 'SINGLE_HOST': True}
     prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
     prompt = prompt_for_podcast_generation + "\n"
+    original_text_n_words = count_words(configuration.episode_contents)
+    min_n_words = int(0.95 * original_text_n_words)
+    prompt = prompt.replace('{min_n_words}', str(min_n_words))
     prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
     prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
     if len(configuration.hosts) > 1:
@@ -147,7 +156,7 @@ def generate_podcast_text_inner(configuration: Configuration):
                    f"then do an introduction with the hosts’ names, and only then continue with a smooth and engaging broadcast."
                    f"Podcast name: {configuration.podcast_name}")
     else:
-        prompt += "DON'T annouce and DON'T mention podcast name, host names, episode number."
+        prompt += "DON'T announce and DON'T mention podcast name, host names, episode number."
 
     lang_output_prompt = "Create the episode in " + configuration.output_language + " language."
     if configuration.output_language == "hebrew":

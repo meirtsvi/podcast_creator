@@ -11,7 +11,7 @@ Host: {man_speaker} ({host1}, professional on the episode content).
 <!--END:SINGLE_HOST-->
 
 Do not include comments about transitions such as (musical intro) or (end jingle).
-This in-depth discussion is not limited in time and should last at least 3,000 words.
+This in-depth discussion is not limited in time and should last at least {min_n_words} words.
 Avoid meta-commentary about summarizing content.
 AVOID REPETITIONS: For instance, do not say "absolutely" and "exactly" or "definitely" too much. Use them sparingly.
 NO WORD REPETITION TRICKS - every word must serve a purpose.

@@ -30,14 +30,14 @@ GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
 current_key_index = 0
 
 def get_next_api_key():
-    """Rotate to the next available API key."""
     global current_key_index
     current_key_index = (current_key_index + 1) % len(GEMINI_API_KEYS)
-    logger.info(f"Current API key is {GEMINI_API_KEYS[current_key_index][:8]}")
+    logger.info(f"Setting API key to {GEMINI_API_KEYS[current_key_index][:8]}")
     return GEMINI_API_KEYS[current_key_index]
 
 def get_current_api_key():
-    """Get the current API key."""
+    global current_key_index
+    logger.info(f"Get current API key: {GEMINI_API_KEYS[current_key_index][:8]}")
     return GEMINI_API_KEYS[current_key_index]
 
 def save_binary_file(file_name, data):
@@ -158,7 +158,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1,
                 logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
                 raise
 
-def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
+def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=2000):
     """Splits text into chunks for two-speaker dialogue mode."""
     SEPARATOR = "\n"
     chunks = []
@@ -177,7 +177,7 @@ def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=1000):
         chunks.append(current_chunk.strip())
     return chunks
 
-def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=1000):
+def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=2000):
     """Splits text into chunks, trying to respect sentence boundaries."""
     for host_name in host_names:
         if text.startswith(host_name):
