@@ -17,6 +17,9 @@ from podcast_creator.logger import logger
 
 dotenv.load_dotenv()
 
+# Lock file for distributed locking
+LOCK_FILE_PATH = "podcast_generator.lock"
+
 # Define available API keys and tracking variables
 GEMINI_API_KEYS = [
     os.environ.get("GEMINI_API_KEY_EV"),
@@ -28,6 +31,31 @@ GEMINI_API_KEYS = [
 # Remove None values in case any environment variables aren't set
 GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
 current_key_index = 0
+
+def wait_for_lock_to_be_freed():
+    """Wait for the lock file to be deleted, checking every 5 seconds."""
+    logger.info(f"Lock file {LOCK_FILE_PATH} exists. Waiting for lock to be freed...")
+    while os.path.exists(LOCK_FILE_PATH):
+        time.sleep(5)
+
+def acquire_lock():
+    """Create the lock file to acquire the distributed lock."""
+    try:
+        with open(LOCK_FILE_PATH, 'w') as lock_file:
+            lock_file.write(str(os.getpid()))
+        logger.info(f"Lock acquired: {LOCK_FILE_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to acquire lock: {e}")
+        raise
+
+def release_lock():
+    """Delete the lock file to release the distributed lock."""
+    try:
+        if os.path.exists(LOCK_FILE_PATH):
+            os.remove(LOCK_FILE_PATH)
+            logger.info(f"Lock released: {LOCK_FILE_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to release lock: {e}")
 
 def get_next_api_key():
     global current_key_index
@@ -82,81 +110,92 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1,
     Yields:
         Stream chunks, or raises after all retries fail.
     """
+
     global current_key_index
     delay = initial_delay
 
-    for attempt in range(max_retries):
-        logger.info(f"Attempt {attempt + 1}/{max_retries} for generating content...")
-        try:
-            client = genai.Client(api_key=get_current_api_key())
-            stream_iterator = client.models.generate_content_stream(
-                model=model,
-                contents=contents,
-                config=config,
-            )
+    # Wait for any existing lock to be freed
+    wait_for_lock_to_be_freed()
 
-            # Run the streaming iterator in a separate thread to allow timeout
-            chunks = []
-            exception_holder = []
+    # Acquire the distributed lock
+    acquire_lock()
 
-            def consume():
-                try:
-                    for chunk in stream_iterator:
-                        chunks.append(chunk)
-                except Exception as e:
-                    exception_holder.append(e)
+    try:
+        for attempt in range(max_retries):
+            logger.info(f"Attempt {attempt + 1}/{max_retries} for generating content...")
+            try:
+                client = genai.Client(api_key=get_current_api_key())
+                stream_iterator = client.models.generate_content_stream(
+                    model=model,
+                    contents=contents,
+                    config=config,
+                )
 
-            t = threading.Thread(target=consume, daemon=True)
-            t.start()
-            t.join(timeout)
+                # Run the streaming iterator in a separate thread to allow timeout
+                chunks = []
+                exception_holder = []
 
-            if t.is_alive():
-                logger.error(f"  Timeout after {timeout} seconds — rotating API key...")
-                # Move to next API key before retrying
-                get_next_api_key()
-                # Abandon the thread (daemon), don't join forever
-                continue  # retry with next key
+                def consume():
+                    try:
+                        for chunk in stream_iterator:
+                            chunks.append(chunk)
+                    except Exception as e:
+                        exception_holder.append(e)
 
-            # If an exception occurred inside the thread, re-raise it here
-            if exception_holder:
-                raise exception_holder[0]
+                t = threading.Thread(target=consume, daemon=True)
+                t.start()
+                t.join(timeout)
 
-            # If we got chunks, yield them and return
-            if chunks:
-                logger.info(f"  Successfully received {len(chunks)} chunks.")
-                for c in chunks:
-                    yield c
-                return
+                if t.is_alive():
+                    logger.error(f"  Timeout after {timeout} seconds — rotating API key...")
+                    # Move to next API key before retrying
+                    get_next_api_key()
+                    # Abandon the thread (daemon), don't join forever
+                    continue  # retry with next key
 
-            # No chunks and no errors? Retry
-            logger.error("  No chunks received (empty stream). Retrying...")
-            get_next_api_key()
+                # If an exception occurred inside the thread, re-raise it here
+                if exception_holder:
+                    raise exception_holder[0]
 
-        except ServerError as se:
-            logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
-            if attempt < max_retries - 1:
-                logger.info(f"  Retrying in {delay} seconds...")
-                time.sleep(delay)
-                delay *= 2
-            else:
-                logger.error(f"  All {max_retries} attempts failed due to ServerError.")
-                raise
+                # If we got chunks, yield them and return
+                if chunks:
+                    logger.info(f"  Successfully received {len(chunks)} chunks.")
+                    for c in chunks:
+                        yield c
+                    return
 
-        except Exception as e:
-            error_message = str(e).lower()
-            logger.error(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
-
-            if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
-                logger.warning("  Rate limit exceeded. Rotating to next API key...")
+                # No chunks and no errors? Retry
+                logger.error("  No chunks received (empty stream). Retrying...")
                 get_next_api_key()
 
-            if attempt < max_retries - 1:
-                logger.warning(f"  Retrying in {delay} seconds...")
-                time.sleep(delay)
-                delay *= 2
-            else:
-                logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
-                raise
+            except ServerError as se:
+                logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
+                if attempt < max_retries - 1:
+                    logger.info(f"  Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    logger.error(f"  All {max_retries} attempts failed due to ServerError.")
+                    raise
+
+            except Exception as e:
+                error_message = str(e).lower()
+                logger.error(f"  Attempt {attempt + 1} failed with unexpected error: {e}")
+
+                if "429" in error_message or "rate limit" in error_message or "quota" in error_message:
+                    logger.warning("  Rate limit exceeded. Rotating to next API key...")
+                    get_next_api_key()
+
+                if attempt < max_retries - 1:
+                    logger.warning(f"  Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    logger.error(f"  All {max_retries} attempts failed due to unexpected error.")
+                    raise
+    finally:
+        # Always release the lock when exiting the function
+        release_lock()
 
 def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=2000):
     """Splits text into chunks for two-speaker dialogue mode."""
