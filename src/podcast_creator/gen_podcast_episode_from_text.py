@@ -302,12 +302,13 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
     chunks = split_text_into_chunks(podcast_text, speaker_names)
 
     for i, chunk_text in enumerate(chunks):
-        logger.info(chunk_text)
         chunk_text = ("Read the following script as natural-sounding speech. "
-                      "If there are cues in parentheses (like (laughing), (whispering), (angry)),"
+                      "If there are cues in parentheses, like (laughing), (whispering), (angry),"
                       " use them to guide HOW you say the lines. "
                       "Only speak the main lines, but let the cues influence your delivery."
-                      "DO NOT say the words in parentheses out loud.\n\nScript:\n") + chunk_text.strip()
+                      "DO NOT say the words in parentheses out loud."
+                      "Each line starts with host name, don't say this part out loud.\nScript:\n") + chunk_text.strip()
+        logger.info(chunk_text)
         contents = [
             types.Content(
                 role="user",
