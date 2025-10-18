@@ -100,7 +100,29 @@ def extract_sentences_no_duplicates(vtt_text):
 
     return "\n".join(sentences)
 
+youtube_extraction_cache = {}
+class youtube_extracted_data:
+    def __init__(self, title, description, content):
+        self.title = title
+        self.description = description
+        self.content = content
+
+    title: str
+    description: str
+    content: str
+
 def extract_content_from_youtube(youtube_url, lang='en'):
+    # Assume all calls to the same youtube url has the same lang
+    cached_youtube_extracted_data = youtube_extraction_cache.get(youtube_url)
+    if cached_youtube_extracted_data:
+        logger.info(f"Found youtube URL {youtube_url} in cache, returning: {cached_youtube_extracted_data.title}")
+        return cached_youtube_extracted_data.title, cached_youtube_extracted_data.description, cached_youtube_extracted_data.content
+    title, description, content = extract_content_from_youtube_innner(youtube_url, lang)
+    cached_youtube_extracted_data = youtube_extracted_data(title, description, content)
+    youtube_extraction_cache[youtube_url] = cached_youtube_extracted_data
+    return title, description, content
+
+def extract_content_from_youtube_innner(youtube_url, lang='en'):
     """
     Downloads subtitles from a YouTube video and extracts sentences without duplicates.
 
@@ -122,5 +144,6 @@ def extract_content_from_youtube(youtube_url, lang='en'):
 
 if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=LCEmiRjPEtQ"
-    cleansed_script = extract_content_from_youtube(url, lang='en')
+    title, description, cleansed_script = extract_content_from_youtube(url, lang='en')
+    title, description, cleansed_script = extract_content_from_youtube(url, lang='en')
     print(cleansed_script)
