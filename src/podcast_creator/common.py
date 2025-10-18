@@ -1,7 +1,7 @@
+import os
 from pathlib import Path as p
 import re
 import glob
-import os
 import time
 
 from google import genai

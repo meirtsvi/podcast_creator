@@ -1,18 +1,45 @@
 import os
+import re
 import glob
 import datetime
 import requests
+from types import SimpleNamespace
+from pathlib import Path
+from urllib.parse import urlparse
+import dotenv
+
+from playwright.sync_api import sync_playwright
+import html2text
 from lxml import html
 from trafilatura import extract
 from markdownify import markdownify
-import html2text
-from playwright.sync_api import sync_playwright
-from types import SimpleNamespace
-from pathlib import Path
 
 from podcast_creator.logger import logger
 from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 
+dotenv.load_dotenv()
+
+def url_to_filename(url: str, max_length: int = 200) -> str:
+    # Parse URL and construct a base name
+    parsed = urlparse(url)
+    base = f"{parsed.netloc}_{parsed.path}_{parsed.query}"
+    if not base.strip():
+        base = url  # fallback
+
+    # Replace invalid characters with "_"
+    base = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', base)
+
+    # Collapse repeated underscores
+    base = re.sub(r'_+', '_', base).strip('_')
+
+    # Limit filename length and add extension if desired
+    base = base[:max_length]
+
+    # Optional: ensure not empty
+    if not base:
+        base = "file"
+
+    return base
 
 def get_deepest_folder(path):
     p = Path(path)
@@ -134,9 +161,23 @@ def _fetch_and_extract(url, session, headers=None):
         logger.error(f"Failed to fetch {url} with headers={headers is not None}. Error: {e}")
         return None, None
 
-
 def get_markdown_from_url(url):
+    cache_folder = os.getenv("CACHE_FOLDER")
+    url_as_filename = url_to_filename(url)
+    cache_path = os.path.join(cache_folder, url_as_filename)
+    if cache_folder and os.path.exists(cache_path):
+        logger.info(f"Loading cached content for {url} from {cache_path}")
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            cached_md = f.read()
+        return cached_md, SimpleNamespace(status_code=200, url=url)
+    md_content, response = get_markdown_from_url_inner(url)
+    if md_content and cache_folder:
+        os.makedirs(cache_folder, exist_ok=True)
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            f.write(md_content)
+    return md_content, response
 
+def get_markdown_from_url_inner(url):
     if "youtube.com" in url or "youtu.be" in url:
         _, _, content = extract_content_from_youtube(url, lang='en')
         return content, SimpleNamespace(status_code=200, url=url)
@@ -145,21 +186,6 @@ def get_markdown_from_url(url):
     and using two different extraction methods. Returns the best result.
     """
     headers = {
-        # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.208 Safari/537.36",
-        # "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        # "Accept-Encoding": "gzip, deflate, br",
-        # "Accept-Language": "en-US,en;q=0.9",
-        # "Cache-Control": "max-age=0",
-        # "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
-        # "Sec-Ch-Ua-Mobile": "?0",
-        # "Sec-Ch-Ua-Platform": '"Windows"',
-        # "Sec-Fetch-Dest": "document",
-        # "Sec-Fetch-Mode": "navigate",
-        # "Sec-Fetch-Site": "none",
-        # "Sec-Fetch-User": "?1",
-        # "Upgrade-Insecure-Requests": "1",
-        # "Connection": "keep-alive",
-        # #"Cookie": "vmidv1=e6ccee59-bd0a-464e-b67b-067ac69e858b; blaize_session=b6a07e30-8a11-4f4b-8caa-33367a862a30; blaize_tracking_id=455ca7ab-51a3-40d3-92d4-9505eff29fc4; _awl=2.1749247632.5-c0f7ca89c84f26614349bc001dc571e2-6763652d6575726f70652d7765737431-1; AWSALB=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; AWSALBCORS=XO1qwI5NI+NjLQkCtD8GfoKD+AXnNCjI0b5LOFBrc9E7t6Z9XZFmPaLdk4Cf/LAr2sig4XMLU4L1rhfBjhG9QM4TJySlR6o+j5TYrgpggkTO2M+r0aS7UsHUX98d; _vm_consent_type=opt-out; OptanonConsent=isGpcEnabled=0&datestamp=Thu+Jul+24+2025+15%3A33%3A47+GMT%2B0300+(Israel+Daylight+Time)&version=202504.1.0&browserGpcFlag=0&isIABGlobal=false&consentId=68abe6e0-243c-4f54-923e-c7edd8bdadd4&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CBG136%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1%2CC0005%3A1&hosts=H60%3A1%2CH369%3A1%2CH407%3A1%2CH236%3A1%2CH27%3A1%2CH42%3A1%2CH167%3A1%2CH486%3A1%2CH409%3A1%2CH410%3A1%2CH29%3A1%2CH62%3A1%2CH63%3A1%2CH4%3A1%2CH64%3A1%2CH231%3A1%2CH12%3A1%2CH251%3A1%2CH71%3A1%2CH74%3A1%2CH17%3A1%2CH488%3A1%2CH77%3A1%2CH275%3A1%2CH285%3A1%2CH82%3A1%2CH379%3A1%2CH381%3A1%2CH484%3A1%2CH89%3A1%2CH164%3A1%2CH90%3A1%2CH41%3A1%2CH46%3A1%2CH48%3A1%2CH244%3A1%2CH96%3A1%2CH290%3A1%2CH246%3A1%2CH489%3A1%2CH490%3A1%2CH304%3A1%2CH11%3A1%2CH487%3A1%2CH297%3A1&genVendors=&AwaitingReconsent=false; duet:identitySession=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSUQiOiJjYzM1M2NhOS1mNGYwLTQ2NzktOGNhOS04MmQzNjA3YzI0OWEiLCJ1c2VySUQiOiJFMU44a3p0R0VnZ1hYa29yazZqS3kzeUlmcFYyIiwiZW50aXRsZW1lbnRzIjoidGhldmVyZ2Vfc3Vic2NyaXB0aW9uIiwiaWF0IjoxNzUzMzYwNDQ0LCJleHAiOjE3NjExMzY0NDR9.JGC0d_OyvmTY7MdFNdPL2hIEiHQlc0cfHqSofSJRZZEBdqwsVWw382DXtX6C9LiN_3DO56UuaJVreJpWbj5BIebEOZryyIeM_NEnDn7HSUx4BMbTm8DuaqLy-iHU8pMmPZ5RQGKDWfVI88VLCrLx5V4iyQsZiYr7OZYg3TabZsW0nWgyezw1KiVLTzitdZRkRT-To6nrMUOQSQr0uoDhF8h1ADJZHu_Q94yR9zCm3QZFEEnC_zwdS3o9-I0SJRsfBG4H1jGPC4q7Hlbh8hKxdAPdddRNSly-n4AkgNFsUpWv2Kt0hQXxg6_sJKgQ66d65ihgxkewNQyGKlADqeM4Jb8Ws3QXW00KykxQK1S75D72yVPizL7jDIeGGSuUyS_LaBJ0R1I8OSYwqiS-9ucEf3fLiKBgW6pcpHesRaUX1dXTnGq5OBQjOzYQ-mvbm4fq-bVz8h02NARjXxcP5v2hsvF7kIETICjGJuvv9rr91R1VANiQiMZW1YKtcK3nAD8ze8sFe_HqsVN_seDeYoSmcsIeUejuF44ob_P4aG4ze9xdUTBZeUoANv6cby9nFnhp8gEWqRukCVQgEIj3deMgqrPoAjWvMjjCgnQ8KE_qi8SwCYFjVnOh-Ots1ZJCPysk1xS4K_jCdsSsJ9fU60X1iZrLXWeQH0zrRsF853P2Vl4; duet:identityAuthenticated=true"
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
         'accept-language': 'en-US,en;q=0.9,he;q=0.8',
         'cache-control': 'no-cache',
@@ -180,10 +206,22 @@ def get_markdown_from_url(url):
 
     if "themarker.com" in url:
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25',
-            'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Referer': 'https://www.google.com/'
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9,he;q=0.8,ru;q=0.7',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Pragma': 'no-cache',
+            'Referer': 'https://login.themarker.com/',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-site',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'Cookie': 'ab-test-group=B; anonymousId=17623320712696; _htzwif=none; acl=acl; _k5a=75@{"u":[{"uid":"YzHlMYzX6jeuWXnt","c":"desktop","ts":1760781050},1760871050]}; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Oct+18+2025+12%3A50%3A51+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; aat=T3FIYTRWOURkTnZGSmp3; productsStatus=BOTHSuscribedPaying_; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjUtMTAtMTggYjJlNjVlNmJlYzgxYTZhNzM3MzdjMDVhMmUyNjcxMjkifQ==; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9'
         }
 
     with requests.Session() as session:
@@ -216,8 +254,11 @@ def get_markdown_from_url(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md = get_markdown_from_url("https://www.themarker.com/wallstreet/2025-10-15/ty-article/.premium/00000199-e779-d54a-abfb-f7f939420000")
+    md = get_markdown_from_url("https://www.themarker.com/weekend/2025-10-17/ty-article-magazine/.highlight/00000199-edde-dde4-a7bd-fdfe20a00000")
     md = get_markdown_from_url("https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai")
-    md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
+    md = get_markdown_from_url("https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai")
+    #md = get_markdown_from_url("https://antemedian.substack.com/p/why-reading-business-books-is-a-waste")
     # md = get_markdown_from_url("https://text-incubation.com/AI+code+is+legacy+code+from+day+one")
     # md = get_markdown_from_url("https://sampatt.com/blog/2025-04-28-can-o3-beat-a-geoguessr-master?utm_source=hackernewsletter&utm_medium=email&utm_term=fav")
     # md = get_markdown_from_url("https://news.ycombinator.com/item?id=44095189")
