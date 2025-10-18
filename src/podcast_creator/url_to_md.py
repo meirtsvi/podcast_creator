@@ -1,8 +1,6 @@
 import os
 import glob
 import datetime
-import random
-import time
 import requests
 from lxml import html
 from trafilatura import extract

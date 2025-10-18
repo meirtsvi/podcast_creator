@@ -147,9 +147,7 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1,
                 t.join(timeout)
 
                 if t.is_alive():
-                    logger.error(f"  Timeout after {timeout} seconds — rotating API key...")
-                    # Move to next API key before retrying
-                    get_next_api_key()
+                    logger.error(f"  Timeout after {timeout} seconds — rertrying...")
                     # Abandon the thread (daemon), don't join forever
                     continue  # retry with next key
 
@@ -166,7 +164,6 @@ def generate_with_retry(model, contents, config, max_retries=3, initial_delay=1,
 
                 # No chunks and no errors? Retry
                 logger.error("  No chunks received (empty stream). Retrying...")
-                get_next_api_key()
 
             except ServerError as se:
                 logger.error(f"  Attempt {attempt + 1} failed with ServerError: {se}")
@@ -216,9 +213,9 @@ def split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk=2000):
         chunks.append(current_chunk.strip())
     return chunks
 
-def split_text_into_chunks(text, host_names: list, max_chars_per_chunk=2000):
+def split_text_into_chunks(text, speaker_names: list, max_chars_per_chunk=2000):
     """Splits text into chunks, trying to respect sentence boundaries."""
-    for host_name in host_names:
+    for host_name in speaker_names:
         if text.startswith(host_name):
             return split_text_into_chunks_two_speaker_mode(text, max_chars_per_chunk)
 
@@ -414,7 +411,7 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
                     model=model,
                     contents=contents,
                     config=generate_content_config,
-                    max_retries=len(GEMINI_API_KEYS),
+                    max_retries=len(GEMINI_API_KEYS) * 2, # try every API key but expect also other errors hence X2
                     initial_delay=10
                 ):
                     if (

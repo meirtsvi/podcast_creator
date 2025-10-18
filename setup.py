@@ -8,6 +8,6 @@ setup(
     author_email="meir.tsvi@live.com",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires="==3.11.14",
+    python_requires=">=3.11.0",
     data_files=[('', ['*.txt', '*.csv' ])],
 )
