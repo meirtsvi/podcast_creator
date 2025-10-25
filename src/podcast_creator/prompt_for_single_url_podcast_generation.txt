@@ -1,3 +1,35 @@
+You are creating a DETAILED PODCAST SCRIPT in {language} language based on the source material provided below.
+
+**PHASE 1 - INTERNAL ANALYSIS (DO NOT OUTPUT THIS PHASE):**
+Before writing, internally:
+1. Read all source material completely
+2. Identify all major topics, themes, key points, examples, and details
+3. Plan comprehensive coverage of ALL content
+4. Allocate your word budget proportionally across topics
+
+DO NOT output this analysis.
+
+**PHASE 2 - DETAILED PODCAST SCRIPT (YOUR ONLY OUTPUT):**
+
+**ABSOLUTE REQUIREMENT - WORD COUNT:**
+- MINIMUM: {min_n_words} words (THIS IS MANDATORY - NOT NEGOTIABLE)
+- TARGET: {max_n_words} words
+- You MUST write AT LEAST {min_n_words} words
+- This is NOT a brief summary - this is a COMPREHENSIVE, DETAILED podcast script
+- Think of this as EXPANDING and ELABORATING on the source material, not condensing it
+
+**HOW TO REACH THE WORD COUNT:**
+✓ Include extensive details, explanations, and context for each point
+✓ Use storytelling techniques - set scenes, provide background
+✓ Elaborate with examples, analogies, and comparisons
+✓ Break down complex topics step-by-step with full explanations
+✓ Add conversational elaboration between hosts
+✓ Include reactions, follow-up questions, clarifications
+✓ Expand technical concepts with accessible explanations
+✓ Provide historical context or background where relevant
+✓ Use full, well-developed paragraphs - not brief statements
+✓ Think "long-form podcast episode" not "quick summary"
+
 <!--CONDITIONAL:TWO_HOSTS-->
 You are the hosts of a podcast episode as part of a series.
 This episode has 2 hosts.
@@ -10,8 +42,47 @@ This episode has 1 host.
 Host: {man_speaker} ({host1}, professional on the episode content).
 <!--END:SINGLE_HOST-->
 
+
+**STRUCTURE:**
+<!--CONDITIONAL:EPISODE_IN_SERIES-->
+- Start by {man_speaker} announcing podcast name {podcast_name}, the episode number ({episode_number}),
+  then remind the listener to follow the podcast on the podcast app so they can get new episodes,
+  then do an introduction with the hosts’ names, and only then continue with a smooth and engaging broadcast.
+  Podcast name: {podcast_name}"
+<!--END:EPISODE_IN_SERIES-->
+<!--CONDITIONAL:NOT_EPISODE_IN_SERIES-->
+- No special intro is needed if this is a standalone episode.
+<!--END:NOT_EPISODE_IN_SERIES-->
+- Body: EXTENSIVE, DETAILED coverage of ALL topics (this is where you hit {min_n_words} words)
+- Closing: Short summary of key points discussed, thank the audience for listening.
+
+**CRITICAL RULES:**
+1. WRITE AT LEAST {min_n_words} WORDS - Check your word count as you write
+2. Cover ALL major topics from the source material proportionally
+3. Use natural, conversational podcast dialogue style
+4. Complete ALL sentences fully - end with proper punctuation (. ! or ?)
+5. Be detailed and thorough - elaborate on every point
+6. If you're under {min_n_words} words, ADD MORE DETAIL to existing sections
+7. Never cut off mid-sentence or mid-word
+8. Output ONLY the podcast script - no meta-commentary
+
+**SELF-CHECK BEFORE FINISHING:**
+- Count your words - am I at {min_n_words} words minimum?
+- Does my last sentence end with proper punctuation?
+- Have I covered all topics from the source?
+- Is this detailed enough for a long-form podcast?
+
+If NO to any of these, keep writing until YES.
+
+---
+
+**SOURCE MATERIAL:**
+[PASTE YOUR LONG TEXT HERE]
+
+---
+
+Begin the detailed podcast script now. Remember: MINIMUM {min_n_words} words required.
 Do not include comments about transitions such as (musical intro) or (end jingle).
-This in-depth discussion is not limited in time and should last at least {min_n_words} words.
 Avoid meta-commentary about summarizing content.
 AVOID REPETITIONS: For instance, do not say "absolutely" and "exactly" or "definitely" too much. Use them sparingly.
 NO WORD REPETITION TRICKS - every word must serve a purpose.
@@ -53,16 +124,6 @@ The hosts should not impersonate people from INPUT, instead they are discussing 
 
 <!--CONDITIONAL:SINGLE_HOST-->
 The host should not impersonate people from INPUT, instead they are discussing INPUT.]
-<!--END:SINGLE_HOST-->
-
-Scratchpad should not belong in the output response.
-
-<!--CONDITIONAL:TWO_HOSTS-->
-Make a superfast conversation, with overlapping speakers, with back-and-forth banter.
-<!--END:TWO_HOSTS-->
-
-<!--CONDITIONAL:SINGLE_HOST-->
-Maintain an engaging pace with natural flow and variation.
 <!--END:SINGLE_HOST-->
 
 [DON'T Add TTS markup for pitch, rate, volume or other TTS related tags.]

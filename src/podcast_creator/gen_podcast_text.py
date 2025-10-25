@@ -79,46 +79,109 @@ def process_conditional_text(content, conditions):
     content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
     return content
 
-def count_words(content: list):
+def count_words(content: list) -> int:
     count = 0
     for line in content:
         count += len(line.split())
     return count
 
-def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3):
-    if num_of_retries > 1:
-        # Run generate_podcast_text_inner in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_of_retries) as executor:
-            futures = [executor.submit(generate_podcast_text_inner, configuration) for _ in range(num_of_retries)]
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
+def generate_podcast_text(configuration: Configuration):
+    logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
 
-        # Calculate target length based on configuration.episode_contents
-        target_length = sum(len(content) for content in configuration.episode_contents)
-        target_min = int(target_length * 0.65)
-        target_max = int(target_length * 0.85)
-
-        # Find the result that best matches 65-85% of target length
-        best_result = None
-        best_score = float('inf')
-
-        for result in results:
-            result_length = len(result)
-            if target_min <= result_length <= target_max:
-                # Calculate how close to the middle of the range (75%)
-                target_ideal = int(target_length * 0.75)
-                score = abs(result_length - target_ideal)
-                if score < best_score:
-                    best_score = score
-                    best_result = result
-
-        # If no result is in the target range, pick the one closest to 75%
-        if best_result is None:
-            target_ideal = int(target_length * 0.75)
-            best_result = min(results, key=lambda r: abs(len(r) - target_ideal))
-
-        podcast_text = best_result
+    if len(configuration.hosts) > 1:
+        conditions = { 'TWO_HOSTS': True, 'SINGLE_HOST': False }
     else:
-        podcast_text = generate_podcast_text_inner(configuration)
+        conditions = { 'TWO_HOSTS': False, 'SINGLE_HOST': True}
+    if configuration.episode_number != -1:
+        conditions = { **conditions, 'EPISODE_IN_SERIES': True, 'NOT_EPISODE_IN_SERIES': False }
+    else:
+        conditions = { **conditions, 'EPISODE_IN_SERIES': False, 'NOT_EPISODE_IN_SERIES': True }
+    prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
+    prompt = prompt_for_podcast_generation + "\n"
+    prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
+    prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
+    if len(configuration.hosts) > 1:
+        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_two_hosts)
+    else:
+        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_single_host)
+    prompt = prompt.replace("{podcast_name}", configuration.podcast_name)
+    prompt = prompt.replace("{episode_number}", str(configuration.episode_number))
+    prompt = prompt.replace("[PASTE YOUR LONG TEXT HERE]", str(configuration.episode_contents))
+    prompt = prompt.replace("{language}", configuration.output_language)
+
+    word_count = count_words(configuration.episode_contents)
+    if word_count > 4200:
+        word_count = 4200
+    min_n_words = int(word_count * 0.85)
+    max_n_words = int(min_n_words * 1.15)
+
+    # Calculate required tokens with generous buffer
+    # Hebrew words might use more tokens
+    estimated_tokens = int(max_n_words * 2.0)  # Very generous for Hebrew
+    prompt = prompt.replace("{min_n_words}", str(min_n_words))
+    prompt = prompt.replace("{max_n_words}", str(max_n_words))
+
+    with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
+        f.write(prompt)
+    with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
+        f.write('\n'.join(configuration.episode_contents))
+
+    client = genai.Client(
+        api_key=os.environ.get("GEMINI_API_KEY"),
+    )
+
+    parts = [types.Part.from_text(text=prompt)]
+    for content in configuration.episode_contents:
+        if content:
+            parts.append(types.Part.from_text(text=content))
+
+    # Use Pro model for better instruction following
+    model = "gemini-2.5-pro-preview-05-06"
+
+    contents = [
+        types.Content(
+            role="user",
+            parts=parts,
+        ),
+    ]
+
+    generate_content_config = types.GenerateContentConfig(
+        response_mime_type="text/plain",
+        temperature=0.8,  # Higher temperature for more elaboration
+        max_output_tokens=estimated_tokens,
+    )
+
+    logger.info(f"Starting generation with max_output_tokens={estimated_tokens}")
+    logger.info(f"Target: {min_n_words}-{max_n_words} words")
+
+    # Use the retry logic
+    podcast_text = generate_podcast_text_with_retry(
+        client=client,
+        model=model,
+        contents=contents,
+        generate_content_config=generate_content_config,
+        min_words=min_n_words,
+        max_retries=5,  # Increased retries
+    )
+
+    # Final verification
+    final_word_count = len(podcast_text.split())
+    is_complete = verify_text_completeness(podcast_text)
+
+    logger.info(f"\n{'=' * 60}")
+    logger.info(f"FINAL RESULTS:")
+    logger.info(f"Word count: {final_word_count} (target: {min_n_words}-{max_n_words})")
+    logger.info(f"Percentage of target: {(final_word_count / min_n_words) * 100:.1f}%")
+    logger.info(f"Text complete: {is_complete}")
+    logger.info(f"{'=' * 60}\n")
+
+    if not is_complete:
+        logger.info("WARNING: Text may be incomplete!")
+
+    if final_word_count < min_n_words * 0.85:
+        logger.info(f"WARNING: Word count significantly below target!")
+
+    logger.info(f"podcast text: {podcast_text[:100]}")
 
     with open(configuration.episode_folder / "podcast_text_original.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
@@ -130,97 +193,120 @@ def generate_podcast_text(configuration: Configuration, num_of_retries: int = 3)
     logger.info(f"Created podcast text from {podcast_text[:100]}... (length: {len(podcast_text)})")
     return podcast_text
 
-def generate_podcast_text_inner(configuration: Configuration):
-    logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
+def generate_podcast_text_with_retry(client, model, contents, generate_content_config, min_words, max_retries=3):
+    """Generate podcast text with truncation detection and retry logic."""
 
-    if len(configuration.hosts) > 1:
-        conditions = { 'TWO_HOSTS': True, 'SINGLE_HOST': False }
-    else:
-        conditions = { 'TWO_HOSTS': False, 'SINGLE_HOST': True}
-    prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
-    prompt = prompt_for_podcast_generation + "\n"
-    original_text_n_words = count_words(configuration.episode_contents)
-    min_n_words = int(0.95 * original_text_n_words)
-    prompt = prompt.replace('{min_n_words}', str(min_n_words))
-    prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
-    prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
-    if len(configuration.hosts) > 1:
-        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_two_hosts)
-    else:
-        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_single_host)
-    prompt = prompt.replace("{podcast_name}", configuration.podcast_name)
-    if configuration.episode_number != -1:
-        prompt += (f"Structure the episode as follows: Start by {configuration.man_speaker_name} announcing podcast name {configuration.podcast_name}, "
-                   f"the episode number ({configuration.episode_number}), "
-                   f"then remind the listener to follow the podcast on the podcast app so they can get new episodes,"
-                   f"then do an introduction with the hosts’ names, and only then continue with a smooth and engaging broadcast."
-                   f"Podcast name: {configuration.podcast_name}")
-    else:
-        prompt += "DON'T announce and DON'T mention podcast name, host names, episode number."
+    for attempt in range(max_retries):
+        num_chunks = 0
+        podcast_text = ""
+        finish_reason = None
+        last_logged_word_count = 0
 
-    lang_output_prompt = "Create the episode in " + configuration.output_language + " language."
-    if configuration.output_language == "hebrew":
-        lang_output_prompt += "כתוב את הטקסט בכתיב מלא."
+        try:
+            for chunk in client.models.generate_content_stream(
+                    model=model,
+                    contents=contents,
+                    config=generate_content_config,
+            ):
+                num_chunks += 1
+                if chunk and chunk.text:
+                    podcast_text += chunk.text
 
-    prompt_suffix = "Use the following for the episode content:"
-    input = f"{prompt}.\n{lang_output_prompt}.{prompt_suffix}"
-    with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
-        f.write(input)
-    with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
-        f.write('\n'.join(configuration.episode_contents))
+                    # Log progress every 500 words
+                    current_word_count = len(podcast_text.split())
+                    if current_word_count - last_logged_word_count >= 500:
+                        logger.info(f"Progress: {current_word_count} words generated...")
+                        last_logged_word_count = current_word_count
 
-    client = genai.Client(
-        api_key=os.environ.get("GEMINI_API_KEY"),
-    )
+                # Check if we have candidates with finish_reason
+                if hasattr(chunk, 'candidates') and chunk.candidates:
+                    candidate = chunk.candidates[0]
+                    if hasattr(candidate, 'finish_reason'):
+                        finish_reason = candidate.finish_reason
 
-    parts = [types.Part.from_text(text=input)]
+        except Exception as e:
+            logger.error(f"Error during generation attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                continue
+            else:
+                raise
 
-    # Use content from configuration instead of calling create_markdown_from_url
-    for content in configuration.episode_contents:
-        if content:
-            parts.append(types.Part.from_text(text=content))
+        # Check if generation completed successfully
+        word_count = len(podcast_text.split())
+        is_complete = verify_text_completeness(podcast_text)
 
-    #model = "gemini-2.5-pro-preview-05-06"
-    model = "gemini-2.5-flash"
-    contents = [
-        types.Content(
-            role="user",
-            parts=parts,
-        ),
-    ]
-    generate_content_config = types.GenerateContentConfig(
-        response_mime_type="text/plain",
-    )
+        logger.info(f"Attempt {attempt + 1}: Generated {word_count} words, "
+                    f"finish_reason={finish_reason}, complete={is_complete}")
 
-    num_chunks = 0
-    podcast_text = ""
-    for chunk in client.models.generate_content_stream(
-        model=model,
-        contents=contents,
-        config=generate_content_config,
-    ):
-        num_chunks += 1
-        if chunk and chunk.text:
-            podcast_text += chunk.text
-        else:
-            logger.warning("Received empty chunk from the model, skipping.")
+        # Check for truncation
+        if finish_reason == "MAX_TOKENS" or str(finish_reason) == "FinishReason.MAX_TOKENS":
+            logger.warning(f"Output was truncated (MAX_TOKENS reached). Retrying with higher limit...")
+            generate_content_config.max_output_tokens = int(generate_content_config.max_output_tokens * 1.5)
+            continue
 
+        # Check if text ends properly
+        if not is_complete:
+            logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
+            continue
+
+        # Check if we're reasonably close to target word count
+        if word_count < min_words * 0.85:  # Relaxed to 85%
+            logger.warning(f"Word count too low ({word_count} < {min_words * 0.85}). Retrying...")
+            continue
+
+        # Success!
+        logger.info(f"Successfully generated {word_count} words")
+        return podcast_text
+
+    # If we exhausted retries, return best attempt
+    logger.warning(f"Exhausted {max_retries} retries. Returning last attempt with {word_count} words")
     return podcast_text
+
+
+def verify_text_completeness(text):
+    """Verify that text ends with a complete sentence."""
+    if not text:
+        return False
+
+    text = text.strip()
+
+    # Check if ends with sentence-ending punctuation
+    if text[-1] in '.!?':
+        return True
+
+    # Hebrew/RTL punctuation
+    if text[-1] in '"\'"':
+        if len(text) > 1 and text[-2] in '.!?':
+            return True
+
+    # Check for common closing markers
+    closing_patterns = ['!', '?', '.', '...']
+    for pattern in closing_patterns:
+        if text.endswith(pattern):
+            return True
+
+    return False
 
 def main():
     from pathlib import Path as p
 
-    configuration = Configuration("hebrew")
-    configuration.set_episode_details(episode_number=95, episode_title="מטהורס", episode_description="עדכונים על מטהורס")
-    configuration.episode_folder = p("/tmp/ep/")
-    configuration.hosts = ['female', 'male']
-    configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
-    with open("/tmp/ep/podcast_content.txt", "r", encoding="utf-8") as f:
-        article_text = f.readlines()
-        configuration.episode_contents = article_text
-    configuration.set_prompts(is_single_url=True)
-    podcast_text = generate_podcast_text(configuration, 1)
-    print(f"Podcast text: {podcast_text}")
+    for ep_num in range(200, 248):
+        try:
+            ep_folder = p(f"/tmp/ep/{ep_num}/")
+            ep_folder.mkdir(parents=True, exist_ok=True)
+            configuration = Configuration("hebrew")
+            configuration.set_episode_details(episode_number=ep_num, episode_title=f"מטהורס {ep_num}", episode_description="עדכונים על מטהורס")
+            configuration.episode_folder = ep_folder
+            configuration.hosts = ['male', 'female']
+            configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
+            with open(f"/Users/meirt/Dropbox/tech_podcast_hebrew/Episode_{ep_num}/podcast_content.txt", "r", encoding="utf-8") as f:
+                article_text = f.readlines()
+                configuration.episode_contents = article_text
+            configuration.set_prompts(is_single_url=True)
+            podcast_text = generate_podcast_text(configuration)
+            print(f"Podcast text for episode {ep_num}: {podcast_text[:100]}... (length: {len(podcast_text)})")
+        except Exception as e:
+            print(f"Error generating podcast text for episode {ep_num}: {e}")
 
 if __name__ == "__main__":
     main()

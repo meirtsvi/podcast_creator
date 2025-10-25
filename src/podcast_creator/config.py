@@ -13,8 +13,7 @@ PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME = "prompt_for_single_url_po
 PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME = "prompt_for_multi_urls_podcast_episode_name.txt"
 PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_single_url_podcast_episode_desc.txt"
 PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME = "prompt_for_multi_urls_podcast_episode_desc.txt"
-PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION = "prompt_for_single_url_podcast_generation.txt"
-PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION = "prompt_for_multi_urls_podcast_generation.txt"
+PROMPT_FOR_PODCAST_GENERATION = "prompt_for_podcast_generation.txt"
 
 EPISODE_TITLE_FILENAME = "episode_name.txt"
 EPISODE_DESC_FILENAME = "episode_desc.txt"
@@ -155,16 +154,15 @@ class Configuration:
             exit(1)
 
     def set_prompts(self, is_single_url: bool):
+        self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_PODCAST_GENERATION)
         if is_single_url:
             self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_TITLE_FILENAME)
             self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME)
-            self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_SINGLE_URL_PODCAST_GENERATION)
             self.links_filename = SINGLE_URL_LINKS_FILEPATH
             self.batch_size = 1
         else:
             self.prompt_for_episode_title_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_TITLE_FILENAME)
             self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME)
-            self.prompt_for_podcast_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_GENERATION)
             self.links_filename = MULTI_URL_LINKS_FILEPATH
             self.batch_size = 10
 
