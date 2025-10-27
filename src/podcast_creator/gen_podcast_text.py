@@ -110,8 +110,9 @@ def generate_podcast_text(configuration: Configuration):
     prompt = prompt.replace("[PASTE YOUR LONG TEXT HERE]", str(configuration.episode_contents))
     prompt = prompt.replace("{language}", configuration.output_language)
 
+    logger.info(f"episode_length: {configuration.episode_length}")
     target_word_count = count_words(configuration.episode_contents)
-    if configuration.episode_length != 0:
+    if configuration.episode_length != -1:
         target_word_count = int(int(configuration.episode_length) * int(WORDS_PER_MINUTE))
     else:
         if target_word_count > 4200:
