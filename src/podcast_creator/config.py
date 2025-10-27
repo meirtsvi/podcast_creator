@@ -46,6 +46,7 @@ class Configuration:
     text_direction: str
     episode_contents: str
     hosts: list
+    episode_length: int
 
     def __init__(self, language: str):
         self.output_language = language
@@ -181,3 +182,6 @@ class Configuration:
 
     def set_episode_contents(self, contents: []):
         self.episode_contents = contents
+
+    def set_episode_length(self, length: int):
+        self.episode_length = length

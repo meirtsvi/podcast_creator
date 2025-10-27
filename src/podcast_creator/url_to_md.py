@@ -169,7 +169,7 @@ def get_markdown_from_url(url):
         logger.info(f"Loading cached content for {url} from {cache_path}")
         with open(cache_path, 'r', encoding='utf-8') as f:
             cached_md = f.read()
-        return cached_md, SimpleNamespace(status_code=200, url=url)
+        return cached_md,  SimpleNamespace(status_code=200, url=url, text=cached_md)
     md_content, response = get_markdown_from_url_inner(url)
     if md_content and cache_folder:
         os.makedirs(cache_folder, exist_ok=True)
@@ -180,7 +180,7 @@ def get_markdown_from_url(url):
 def get_markdown_from_url_inner(url):
     if "youtube.com" in url or "youtu.be" in url:
         _, _, content = extract_content_from_youtube(url, lang='en')
-        return content, SimpleNamespace(status_code=200, url=url)
+        return content, SimpleNamespace(status_code=200, url=url, text=content)
     """
     Tries to get markdown from a URL by fetching with and without headers,
     and using two different extraction methods. Returns the best result.

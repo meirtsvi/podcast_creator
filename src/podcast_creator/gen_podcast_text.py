@@ -12,6 +12,7 @@ from podcast_creator.config import Configuration
 
 dotenv.load_dotenv()
 
+WORDS_PER_MINUTE = int(os.getenv('WORDS_PER_MINUTE'))
 
 def apply_translations(podcast_text, configuration):
     # --- Apply translations from translations.csv ---
@@ -109,15 +110,20 @@ def generate_podcast_text(configuration: Configuration):
     prompt = prompt.replace("[PASTE YOUR LONG TEXT HERE]", str(configuration.episode_contents))
     prompt = prompt.replace("{language}", configuration.output_language)
 
-    word_count = count_words(configuration.episode_contents)
-    if word_count > 4200:
-        word_count = 4200
-    min_n_words = int(word_count * 0.85)
-    max_n_words = int(min_n_words * 1.15)
+    target_word_count = count_words(configuration.episode_contents)
+    if configuration.episode_length != 0:
+        target_word_count = int(int(configuration.episode_length) * int(WORDS_PER_MINUTE))
+    else:
+        if target_word_count > 4200:
+            target_word_count = 4200
+
+    logger.info(f"Target word count: {target_word_count}")
+    min_n_words = int(target_word_count * 0.85)
+    max_n_words = int(target_word_count * 1.15)
 
     # Calculate required tokens with generous buffer
     # Hebrew words might use more tokens
-    estimated_tokens = int(max_n_words * 2.0)  # Very generous for Hebrew
+    estimated_tokens = int(max_n_words * 2.0)  if configuration.output_language=="hebrew" else int(max_n_words) # Very generous for Hebrew
     prompt = prompt.replace("{min_n_words}", str(min_n_words))
     prompt = prompt.replace("{max_n_words}", str(max_n_words))
 

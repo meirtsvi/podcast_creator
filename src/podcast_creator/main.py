@@ -65,40 +65,44 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     # First gather all URLs and titles
     all_urls = []
     all_titles = []
+    all_lens = []
 
     with open(configuration.links_filename, "r", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 parts = line.strip().split(',', 1)
                 url = parts[0]
-                title = parts[1] if len(parts) > 1 else ""
+                length = parts[1] if len(parts) > 1 else 0
 
-                if title == "":
-                    valid, title, url = generate_title_from_url(url)
-                    if not valid:
-                        continue
+                valid, title, url = generate_title_from_url(url)
+                if not valid:
+                    continue
 
                 all_urls.append(url.rstrip('/'))
                 all_titles.append(title)
+                all_lens.append(length)
 
     # Filter out processed URLs
     remaining_urls = []
     remaining_titles = []
+    remaining_lens = []
 
-    for url, title in zip(all_urls, all_titles):
+    for url, title, length in zip(all_urls, all_titles, all_lens):
         if url not in processed_urls:
             remaining_urls.append(url)
             remaining_titles.append(title)
+            remaining_lens.append(length)
 
     logger.info(f"Found {len(remaining_urls)} URLs to check for content...")
 
     # Create lists to store filtered URLs, titles, and content
     filtered_urls = []
     filtered_titles = []
+    filtered_lens = []
     remaining_content = []
 
     url_without_content = []
-    for url, title in zip(remaining_urls, remaining_titles):
+    for url, title, length in zip(remaining_urls, remaining_titles, remaining_lens):
         # Try to extract content from the URL
         logger.info(f"Extracting content from {url}...")
         md_content, status_code = get_markdown_from_url(url)
@@ -107,6 +111,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
         if md_content:
             filtered_urls.append(url)
             filtered_titles.append(title)
+            filtered_lens.append(length)
             remaining_content.append(md_content)
         else:
             logger.info(f"Skipping URL due to failed content extraction: {url}")
@@ -123,6 +128,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     # Update remaining_urls and remaining_titles to only include those with valid content
     remaining_urls = filtered_urls
     remaining_titles = filtered_titles
+    remaining_lens = filtered_lens
 
     logger.info(f"Found {len(remaining_urls)} URLs with valid content to process")
 
@@ -130,9 +136,10 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     batch_size = configuration.batch_size
     url_batches = [remaining_urls[i:i + batch_size] for i in range(0, len(remaining_urls), batch_size)]
     title_batches = [remaining_titles[i:i + batch_size] for i in range(0, len(remaining_titles), batch_size)]
+    len_batches = [remaining_lens[i:i + batch_size] for i in range(0, len(remaining_lens), batch_size)]
     content_batches = [remaining_content[i:i + batch_size] for i in range(0, len(remaining_content), batch_size)]
 
-    for batch_number, (urls, titles, contents) in enumerate(zip(url_batches, title_batches, content_batches), 1):
+    for batch_number, (urls, titles, lens, contents) in enumerate(zip(url_batches, title_batches, len_batches, content_batches), 1):
         if batch_number > 1 and not is_single_url_episode and len(urls) < batch_size:
             logger.info(f"Skipping batch {batch_number} as it contains less than {batch_size} URLs")
             continue
@@ -141,6 +148,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             continue
         configuration.set_episode_urls(urls)
         configuration.set_episode_titles(titles)
+        configuration.set_episode_length(lens[0])
         configuration.set_episode_contents(contents)
         try:
             process_batch(configuration, batch_number, next_episode_number + batch_number - 1)
