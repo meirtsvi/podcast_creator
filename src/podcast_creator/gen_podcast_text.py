@@ -167,6 +167,7 @@ def generate_podcast_text(configuration: Configuration):
         model=model,
         contents=contents,
         generate_content_config=generate_content_config,
+        configuration=configuration,
         min_words=min_n_words,
         max_retries=5,  # Increased retries
     )
@@ -200,7 +201,8 @@ def generate_podcast_text(configuration: Configuration):
     logger.info(f"Created podcast text from {podcast_text[:100]}... (length: {len(podcast_text)})")
     return podcast_text
 
-def generate_podcast_text_with_retry(client, model, contents, generate_content_config, min_words, max_retries=3):
+def generate_podcast_text_with_retry(client, model, contents, generate_content_config, configuration: Configuration,
+                                     min_words, max_retries=3):
     """Generate podcast text with truncation detection and retry logic."""
 
     for attempt in range(max_retries):
@@ -237,6 +239,14 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
                 continue
             else:
                 raise
+
+        for line in podcast_text.splitlines():
+            if line.strip() == "":
+                continue
+            if not (line.startswith(configuration.man_speaker_name)
+                or line.startswith(configuration.woman_speaker_name)):
+                logger.info(f"Found line that doesn't start with host name: {line}")
+                continue
 
         # Check if generation completed successfully
         word_count = len(podcast_text.split())
