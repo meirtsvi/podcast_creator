@@ -72,7 +72,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             if line.strip():
                 parts = line.strip().split(',', 1)
                 url = parts[0]
-                length = parts[1] if len(parts) > 1 else 0
+                length = parts[1] if len(parts) > 1 else -1
 
                 valid, title, url = generate_title_from_url(url)
                 if not valid:
@@ -148,7 +148,8 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
             continue
         configuration.set_episode_urls(urls)
         configuration.set_episode_titles(titles)
-        configuration.set_episode_length(lens[0])
+        if is_single_url_episode:
+            configuration.set_episode_length(lens[0])
         configuration.set_episode_contents(contents)
         try:
             process_batch(configuration, batch_number, next_episode_number + batch_number - 1)

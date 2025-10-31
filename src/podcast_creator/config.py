@@ -53,6 +53,7 @@ class Configuration:
         self.podcast_root_folder = f'{os.environ.get("OUTPUT_FOLDER_PREFIX", "")}_{language}'
         self.season_number = 1
         self.hosts = ['male', 'female']
+        self.episode_length = -1
         if language == "hebrew":
             self.transistor_show_id = "64672"
             self.transistor_show_identifier = "335a5183-08d0-48bf-835c-ebf1854db9d4"
@@ -166,6 +167,7 @@ class Configuration:
             self.prompt_for_episode_description_generation = read_file_content(PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME)
             self.links_filename = MULTI_URL_LINKS_FILEPATH
             self.batch_size = 10
+            self.episode_length = 20
 
     def set_episode_details(self, episode_number: int, episode_title: str, episode_description: str):
         self.episode_number = episode_number
