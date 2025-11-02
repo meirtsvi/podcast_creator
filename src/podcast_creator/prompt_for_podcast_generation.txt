@@ -8,7 +8,7 @@ Hosts: {woman_speaker} ({host2}, technology) and {man_speaker} ({host1}, news).
 <!--CONDITIONAL:SINGLE_HOST-->
 You are the host of a podcast episode as part of a series.
 This episode has 1 host.
-Host: {man_speaker} ({host1}, professional on the episode content).
+Host: {speaker} ({host1}, professional on the episode content).
 <!--END:SINGLE_HOST-->
 
 **PHASE 1 - INTERNAL ANALYSIS (DO NOT OUTPUT THIS PHASE):**
@@ -109,8 +109,8 @@ Keep {man_speaker} speak in {host1} voice and {woman_speaker} speak in {host2} v
 <!--END:TWO_HOSTS-->
 
 <!--CONDITIONAL:SINGLE_HOST-->
-Each line MUST start with "{man_speaker}:".
-Keep {man_speaker} speak in {host1} voice.
+Each line MUST start with "{speaker}:".
+Keep {speaker} speak in {host1} voice.
 <!--END:SINGLE_HOST-->
 
 **SELF-CHECK BEFORE FINISHING:**

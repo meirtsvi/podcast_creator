@@ -100,6 +100,7 @@ def generate_podcast_text(configuration: Configuration):
     prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
     prompt = prompt_for_podcast_generation + "\n"
     prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
+    prompt = prompt.replace("{speaker}", configuration.man_speaker_name if configuration.hosts[0].lower() == "male" else configuration.woman_speaker_name)
     prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
     if len(configuration.hosts) > 1:
         prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_two_hosts)

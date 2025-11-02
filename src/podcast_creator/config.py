@@ -45,7 +45,7 @@ class Configuration:
     podcast_name: str
     text_direction: str
     episode_contents: str
-    hosts: list
+    hosts: list[str]
     episode_length: int
 
     def __init__(self, language: str):
