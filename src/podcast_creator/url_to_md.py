@@ -121,6 +121,8 @@ def playwright_extract_to_markdown(url: str):
 
 def _found_text(article: str):
     found_text = False
+    if article.strip() == "You need to enable JavaScript to run this app.":
+        return found_text
     for line in article.splitlines():
         if line.strip() == "":
             continue
@@ -150,12 +152,12 @@ def _fetch_and_extract(url, session, headers=None):
         md_extract = extract(html_string,
                              output_format="markdown",
                              favor_recall=True)
-        if not _found_text(md_extract):
+        if md_extract and not _found_text(md_extract):
             md_extract = ""
 
         # Method 2: html_to_markdown_fallback (manual extraction)
         md_fallback = html_to_markdown_fallback(html_string)
-        if not _found_text(md_fallback):
+        if md_fallback and not _found_text(md_fallback):
             md_fallback = ""
 
         # Compare and return the longest markdown content
@@ -270,6 +272,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md = get_markdown_from_url("https://www.squid-club.com/blog/the-reality-of-ai-first-coding-that-nobodys-telling-you-about")
     md = get_markdown_from_url("https://www.themarker.com/technation/2025-10-30/ty-article/.premium/0000019a-3597-ddf1-a1db-fdffa8830000?utm_source=App_Share&utm_medium=iOS_Native")
     md = get_markdown_from_url("https://www.themarker.com/wallstreet/2025-10-15/ty-article/.premium/00000199-e779-d54a-abfb-f7f939420000")
     md = get_markdown_from_url("https://www.themarker.com/weekend/2025-10-17/ty-article-magazine/.highlight/00000199-edde-dde4-a7bd-fdfe20a00000")
