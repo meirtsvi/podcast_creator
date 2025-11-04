@@ -36,6 +36,16 @@ def wait_for_lock_to_be_freed():
     """Wait for the lock file to be deleted, checking every 5 seconds."""
     logger.info(f"Lock file {LOCK_FILE_PATH} exists. Waiting for lock to be freed...")
     while os.path.exists(LOCK_FILE_PATH):
+        with open(LOCK_FILE_PATH, 'r') as lock_file:
+            # check if the process holding the lock is still running
+            try:
+                locking_pid = int(lock_file.read().strip())
+                os.kill(locking_pid, 0)  # Check if process is running
+            except (ValueError, ProcessLookupError):
+                # Process not running, remove stale lock file
+                logger.info(f"Stale lock file detected. Removing lock file {LOCK_FILE_PATH}.")
+                os.remove(LOCK_FILE_PATH)
+                break
         time.sleep(5)
 
 def acquire_lock():
