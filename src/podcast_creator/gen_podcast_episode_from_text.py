@@ -288,15 +288,13 @@ def split_text_into_chunks(text, speaker_names: list, max_chars_per_chunk=2000):
     return chunks
 
 def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_file_path, speaker_names,
-                                             hosts_gender=None, tone=None):
+                                             hosts_gender=None):
     # Reset gemini API key index
     global current_key_index
     current_key_index = 0
 
     if hosts_gender is None:
         hosts_gender = ['Male', 'Female']
-    if tone is None:
-        tone = "Conversational"
 
     logger.info("Generating podcast episode audio from text...")
 
@@ -327,44 +325,16 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
 
         host_gender = hosts_gender[0]
         if host_gender == 'Male':
-            if tone == "Energetic":
-                voice1 = "Orus"
-            elif tone == "Conversational":
-                voice1 = "Charon"
-            elif tone == "Academic":
-                voice1 = "Sadaltager"
-            else:
-                raise ValueError(f"Unknown tone: {tone}")
+            voice1 = "Charon"
         else:
-            if tone == "Energetic":
-                voice1 = "Aoede"
-            elif tone == "Conversational":
-                voice1 = "Laomedeia"
-            elif tone == "Academic":
-                voice1 = "Gacrux"
-            else:
-                raise ValueError(f"Unknown tone: {tone}")
+            voice1 = "Laomedeia"
 
         if len(speaker_names) == 2:
             host_gender = hosts_gender[1]
             if host_gender == 'Male':
-                if tone == "Energetic":
-                    voice2 = "Zubenelgenubi"
-                elif tone == "Conversational":
-                    voice2 = "Fenrir"
-                elif tone == "Academic":
-                    voice2 = "Puck"
-                else:
-                    raise ValueError(f"Unknown tone: {tone}")
+                voice2 = "Fenrir"
             else:
-                if tone == "Energetic":
-                    voice2 = "Zephyr"
-                elif tone == "Conversational":
-                    voice2 = "Kore"
-                elif tone == "Academic":
-                    voice2 = "Autonoe"
-                else:
-                    raise ValueError(f"Unknown tone: {tone}")
+                voice2 = "Kore"
 
         if len(speaker_names) == 1:
             logger.info(f"Using voice {voice1} for single speaker: {speaker_names[0]}")
