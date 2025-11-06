@@ -241,13 +241,18 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             else:
                 raise
 
+        found_illegal_line = False
         for line in podcast_text.splitlines():
             if line.strip() == "":
                 continue
             if not (line.startswith(configuration.man_speaker_name)
                 or line.startswith(configuration.woman_speaker_name)):
                 logger.info(f"Found line that doesn't start with host name: {line}")
-                continue
+                found_illegal_line = True
+                break
+        if found_illegal_line:
+            logger.info(f"The generated text is not formatted with host name that begins each line. Trying again...")
+            continue
 
         # Check if generation completed successfully
         word_count = len(podcast_text.split())
