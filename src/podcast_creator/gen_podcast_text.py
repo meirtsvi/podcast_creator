@@ -170,7 +170,7 @@ def generate_podcast_text(configuration: Configuration):
         generate_content_config=generate_content_config,
         configuration=configuration,
         min_words=min_n_words,
-        max_retries=5,  # Increased retries
+        max_retries=10,  # Increased retries
     )
 
     # Final verification
