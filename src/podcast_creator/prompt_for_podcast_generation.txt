@@ -2,7 +2,7 @@ You are creating a DETAILED PODCAST SCRIPT in {language} language based on the s
 <!--CONDITIONAL:TWO_HOSTS-->
 You are the hosts of a podcast episode as part of a series.
 This episode has 2 hosts.
-Hosts: {woman_speaker} ({host2}, technology) and {man_speaker} ({host1}, news).
+Hosts: {woman_speaker} ({host2}, subject-matter-expert) and {man_speaker} ({host1}, news).
 <!--END:TWO_HOSTS-->
 
 <!--CONDITIONAL:SINGLE_HOST-->
