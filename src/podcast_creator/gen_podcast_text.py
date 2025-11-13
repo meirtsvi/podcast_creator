@@ -241,6 +241,39 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             else:
                 raise
 
+        # Fix pattern where host name and colon are on one line, and text is on the next line
+        lines = podcast_text.splitlines()
+        fixed_lines = []
+        found_pattern = False
+        i = 0
+        while i < len(lines):
+            current_line = lines[i].strip()
+            
+            # Check if current line is only "host_name:"
+            if i < len(lines) - 1 and (
+                current_line.strip() == f"{configuration.man_speaker_name}:" or 
+                current_line.strip() == f"{configuration.woman_speaker_name}:"
+            ):
+                next_line = lines[i + 1].strip()
+                # Check if next line doesn't start with "host_name: "
+                if next_line and \
+                   not next_line.startswith(f"{configuration.man_speaker_name}: ") and \
+                   not next_line.startswith(f"{configuration.woman_speaker_name}: "):
+                    # Combine the two lines
+                    combined_line = f"{current_line} {next_line}"
+                    fixed_lines.append(combined_line)
+                    found_pattern = True
+                    i += 2  # Skip the next line since we already processed it
+                    continue
+            
+            fixed_lines.append(lines[i])
+            i += 1
+        
+        # Only update podcast_text if we actually found and fixed the pattern
+        if found_pattern:
+            podcast_text = "\n".join(fixed_lines)
+            logger.info(f"Fixed podcast_text by combining host name lines with following text lines")
+
         found_illegal_line = False
         for line in podcast_text.splitlines():
             if line.strip() == "":
