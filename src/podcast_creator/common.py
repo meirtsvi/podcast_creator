@@ -1,9 +1,12 @@
 import os
+import tempfile
+from datetime import datetime
 from pathlib import Path as p
 import re
 import glob
 import time
 
+import requests
 from google import genai
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
@@ -154,7 +157,6 @@ def create_episode_folder(configuration: Configuration):
 def extract_text_from_pdf(pdf_path):
     """Extract text from a PDF file using PyPDF."""
     try:
-        # Create PDF reader object
         reader = PdfReader(pdf_path)
 
         # Extract text from all pages
@@ -165,8 +167,7 @@ def extract_text_from_pdf(pdf_path):
         return text.strip()
 
     except Exception as e:
-        app_logger.error(
-            f"Error extracting text from PDF {pdf_path}: {str(e)}")
+        logger.error(f"Error extracting text from PDF {pdf_path}: {str(e)}")
         return ""
 
 
@@ -174,7 +175,7 @@ def generate_title_from_text(text):
     prompt = f"Generate a concise, informative title for the article text below. Don't print 'here is concise...', just give the title: {text[:500]}"
     ret = call_genai_api(prompt)
     return ret
-    
+
 def generate_title_from_url(url):
     try:
         md, response = get_markdown_from_url(url)
@@ -246,6 +247,29 @@ def get_episodes_with_missing_audio(configuration: Configuration) -> list:
             missing_audio_episodes.append((episode_number, p(folder)))
 
     return missing_audio_episodes
+
+def extract_content_from_arxiv(url):
+    with requests.Session() as session:
+        response = session.get(url,
+                               verify=False,
+                               allow_redirects=True,
+                               timeout=30)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        pdf_link = soup.find("a", string=lambda s: s and "view pdf" in s.lower())["href"]
+        if not pdf_link:
+            logger.error(f"Failed to extract link from arxiv page {url}")
+            return None
+
+        file_url = requests.compat.urljoin(url, pdf_link)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            r = requests.get(file_url)
+            tmp.write(r.content)
+            tmp.close()
+
+            content = extract_text_from_pdf(tmp.name)
+            os.remove(tmp.name)
+            return content
 
 if __name__ == "__main__":
     title = generate_title_from_url("https://dl.dropbox.com/scl/fi/6boeio53wmrqzvhun3lov/content_to_share-1.txt?rlkey=zqd71u8zy4vhi0kh2v11xftvn&dl=1")

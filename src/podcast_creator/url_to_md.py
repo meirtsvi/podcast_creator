@@ -1,7 +1,9 @@
+import json
 import os
 import re
 import glob
 import datetime
+
 import requests
 from types import SimpleNamespace
 from pathlib import Path
@@ -16,6 +18,7 @@ from markdownify import markdownify
 
 from podcast_creator.logger import logger
 from podcast_creator.youtube_content_extractor import extract_content_from_youtube
+from podcast_creator.reddit_scraper import extract_content_from_reddit
 
 dotenv.load_dotenv()
 
@@ -180,7 +183,7 @@ def _fetch_and_extract(url, session, headers=None):
 def get_markdown_from_url(url):
     cache_folder = os.getenv("CACHE_FOLDER")
     url_as_filename = url_to_filename(url)
-    cache_path = os.path.join(cache_folder, url_as_filename)
+    cache_path = os.path.join(cache_folder, url_as_filename).replace("\\", "/")
     if cache_folder and os.path.exists(cache_path):
         logger.info(f"Loading cached content for {url} from {cache_path}")
         with open(cache_path, 'r', encoding='utf-8') as f:
@@ -193,10 +196,21 @@ def get_markdown_from_url(url):
             f.write(md_content)
     return md_content, response
 
+
 def get_markdown_from_url_inner(url):
     if "youtube.com" in url or "youtu.be" in url:
         _, _, content = extract_content_from_youtube(url, lang='en')
         return content, SimpleNamespace(status_code=200, url=url, text=content)
+
+    if url.startswith("https://arxiv.org/") and not "/pdf/" in url:
+        from common import extract_content_from_arxiv
+        content = extract_content_from_arxiv(url)
+        return content, SimpleNamespace(status_code=200, url=url, text=content)
+
+    if "reddit.com" in url:
+        content = extract_content_from_reddit(url)
+        return json.dumps(content), SimpleNamespace(status_code=200, url=url, text=content)
+
     """
     Tries to get markdown from a URL by fetching with and without headers,
     and using two different extraction methods. Returns the best result.
@@ -272,6 +286,9 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md = get_markdown_from_url("https://www.reddit.com/r/algotrading/comments/1kgqcs7/using_machine_learning_for_trading_in_2025/")
+    md = get_markdown_from_url("https://arxiv.org/abs/2503.09655")
+
     md = get_markdown_from_url("https://www.squid-club.com/blog/the-reality-of-ai-first-coding-that-nobodys-telling-you-about")
     md = get_markdown_from_url("https://www.themarker.com/technation/2025-10-30/ty-article/.premium/0000019a-3597-ddf1-a1db-fdffa8830000?utm_source=App_Share&utm_medium=iOS_Native")
     md = get_markdown_from_url("https://www.themarker.com/wallstreet/2025-10-15/ty-article/.premium/00000199-e779-d54a-abfb-f7f939420000")
