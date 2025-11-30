@@ -286,6 +286,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md = get_markdown_from_url("https://www.squid-club.com/blog/the-reality-of-ai-first-coding-that-nobodys-telling-you-about")
     md = get_markdown_from_url("https://www.reddit.com/r/algotrading/comments/1kgqcs7/using_machine_learning_for_trading_in_2025/")
     md = get_markdown_from_url("https://arxiv.org/abs/2503.09655")
 
