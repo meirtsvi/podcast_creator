@@ -1,7 +1,6 @@
 import os
 import re
 import csv
-import concurrent.futures
 
 import dotenv
 from google import genai
@@ -9,6 +8,8 @@ from google.genai import types
 
 from podcast_creator.logger import logger
 from podcast_creator.config import Configuration
+
+from podcast_creator.common import process_conditional_text
 
 dotenv.load_dotenv()
 
@@ -64,21 +65,6 @@ def cleanup_text(podcast_text: str, configuration: Configuration):
     podcast_text = re.sub(rf'(?<!^)(?<!\n)({configuration.man_speaker_name}:|{configuration.woman_speaker_name}:)', r'\n\1', podcast_text)
     logger.info(f"Cleaned up text. podcast_text: {podcast_text}")
     return podcast_text
-
-def process_conditional_text(content, conditions):
-    for condition_name, include in conditions.items():
-        pattern = f'<!--CONDITIONAL:{condition_name}-->(.*?)<!--END:{condition_name}-->'
-
-        if include:
-            # Keep the content but remove the markers
-            content = re.sub(pattern, r'\1', content, flags=re.DOTALL)
-        else:
-            # Remove the entire conditional block
-            content = re.sub(pattern, '', content, flags=re.DOTALL)
-
-    # Clean up any remaining empty lines
-    content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
-    return content
 
 def count_words(content: list) -> int:
     count = 0

@@ -1,3 +1,16 @@
-Print the article title you received, and then put the link to the title as you received it.
- **Do not** return an introduction such as “here is the summary” or any other addition—only the title, a blank line, and then the link to the title.
- Format all the text as HTML.
+Create html body with text aligned {direction} in the following structure:
+line 1: article_title as html title h3 translated to {language}.
+lines 2 and 3: a blank line - html <br>
+line 4: article_link as html link. The link title should be "link to the source" translated to {language}.
+<!--CONDITIONAL:EPISODE_LINK-->
+lines 4 and 5: a blank line - html <br>
+line 6: episode_content_link as html link. The link title should be "link to the episode content" translated to {language}.
+<!--END:EPISODE_LINK-->
+
+**Do not** return an introduction or explanation such as “here is the summary” or any other additions.
+
+article_title={title}
+article_link={link}
+<!--CONDITIONAL:EPISODE_LINK-->
+episode_content_link={episode_content_link}
+<!--END:EPISODE_LINK-->

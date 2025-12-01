@@ -33,7 +33,6 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     logger.info(f'Episode name: {episode_title}')
 
     episode_description = create_episode_description(configuration, urls, titles)
-    episode_description = episode_description.replace("```html", "").replace("```", "").replace("\n", "")
     logger.info(f'Episode description: {episode_description}')
 
     configuration.set_episode_details(episode_number, episode_title, episode_description)

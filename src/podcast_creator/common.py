@@ -48,6 +48,21 @@ def translate_text(text, target_language):
     translated_text = call_genai_api(prompt)
     return translated_text
 
+def process_conditional_text(content, conditions):
+    for condition_name, include in conditions.items():
+        pattern = f'<!--CONDITIONAL:{condition_name}-->(.*?)<!--END:{condition_name}-->'
+
+        if include:
+            # Keep the content but remove the markers
+            content = re.sub(pattern, r'\1', content, flags=re.DOTALL)
+        else:
+            # Remove the entire conditional block
+            content = re.sub(pattern, '', content, flags=re.DOTALL)
+
+    # Clean up any remaining empty lines
+    content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
+    return content
+
 def create_episode_title(configuration: Configuration, titles: [], episode_number: int):
     prompt = configuration.prompt_for_episode_title_generation
     prompt += "\n".join(titles)
@@ -55,17 +70,27 @@ def create_episode_title(configuration: Configuration, titles: [], episode_numbe
     final_title = translate_text(title, configuration.output_language)
     return final_title
 
-def create_episode_description(configuration: Configuration, urls: [], titles: []):
+def create_episode_description(configuration: Configuration, urls: [], titles: [], episode_content_link=None):
     prompt = configuration.prompt_for_episode_description_generation + "."
-    url_title_pairs = [f"{url} {title}" for url, title in zip(urls, titles)]
-    prompt += "\n".join(url_title_pairs)
+    prompt = prompt.replace("{language}", configuration.output_language)
+    prompt = prompt.replace("{direction}", configuration.text_direction)
+    if len(urls) == 1:
+        prompt = prompt.replace("{title}", titles[0])
+        prompt = prompt.replace("{link}", urls[0])
+    else:
+        prompt = prompt.replace("{titles}", ', '.join(titles))
+        prompt = prompt.replace("{links}", ', '.join(urls))
+
+    if episode_content_link:
+        conditions = {'EPISODE_LINK': True}
+        prompt = prompt.replace("{episode_content_link}", episode_content_link)
+    else:
+        conditions = {'EPISODE_LINK': False}
+    prompt = process_conditional_text(prompt, conditions)
     desc = call_genai_api(prompt)
-    final_desc = call_genai_api(f"Translate the following text to {configuration.output_language}: "
-                                f"Format text " + configuration.text_direction + "."
-                                f"Provide only the translated text and links without any additional text."
-                                f"Keep html format. Each link in a separate line."
-                                f": '{desc}'.")
+    final_desc = desc.replace("```html", "").replace("```", "").replace("\n", "")
     return final_desc
+
 
 def create_source_list(source_type, batch_size=10) -> list:
     root_directory = p(__file__).parent
@@ -198,6 +223,10 @@ def generate_title_from_url(url):
                 title = title.split(" - by ")[0].strip()
             soup.title.string = title
             return True, soup.title.string.strip(), final_url
+        if md and md.startswith("# "):
+            first_line = md.splitlines()[0]
+            result = first_line[2:]
+            return True, result, final_url
     except Exception as e:
         logger.error(f"Error extracting title from {url}: {str(e)}")
         return False, "", ""
@@ -272,5 +301,25 @@ def extract_content_from_arxiv(url):
             return content
 
 if __name__ == "__main__":
-    title = generate_title_from_url("https://dl.dropbox.com/scl/fi/6boeio53wmrqzvhun3lov/content_to_share-1.txt?rlkey=zqd71u8zy4vhi0kh2v11xftvn&dl=1")
-    print(title)
+    conf_for_episode_desc = Configuration("hebrew")
+    conf_for_episode_desc.set_prompts(is_single_url=False)
+#    links = ["https://www.calcalist.co.il/calcalistech/article/byptkek111e#google_vignette"]
+#    titles = ["Israeli cybersecurity startup Cyera has raised $300 million, reaching a valuation of $1.4 billion."]
+    links = ["https://www.calcalist.co.il/calcalistech/article/rjhhkazbwg", "https://www.calcalist.co.il/calcalistech/article/bkvzumfbwe", "https://www.calcalist.co.il/calcalistech/article/bj8wsfmbze", "https://www.calcalist.co.il/calcalistech/article/rytkcg7zbl",
+"https://www.calcalist.co.il/calcalistech/article/rkg11rzxb11l", "https://www.calcalist.co.il/calcalistech/article/rjefbqmb11l", "https://www.calcalist.co.il/calcalistech/article/sjdcrmmbbg", "https://www.calcalist.co.il/calcalistech/article/ryneqxvzwe" ]
+
+    titles = ["Intel Israel to Lay Off Hundreds of Employees",
+"Intel Acquires Israeli Startup Granulate for $650 Million",
+"AI21 Labs Raises $232M from Nvidia and Google at $1.4B Valuation",
+"Israeli Tech Veterans Launch New Tel Aviv Accelerator, Omnion",
+"Intel to Acquire Israeli Cloud Optimization Startup Granulate for $650 Million",
+"Microsoft to Split Teams from Office Suite Globally to Avoid EU Antitrust Fine",
+"Pitango Launches 'The Matter' Accelerator for Advanced Materials Startups",
+"Xyte Raises $30 Million Series A Led by Intel Capital for its Hardware-as-a-Service Platform"
+]
+
+    episode_desc = create_episode_description(conf_for_episode_desc, links, titles, episode_content_link="https://www.dropbox.com/scl/fi/we2pvsuklbxzbmgcflxtj/original_content.txt?rlkey=t82mpmsshy9hek5pssihqbu2p&dl=0")
+    print(episode_desc)
+
+    #title = generate_title_from_url("https://dl.dropbox.com/scl/fi/6boeio53wmrqzvhun3lov/content_to_share-1.txt?rlkey=zqd71u8zy4vhi0kh2v11xftvn&dl=1")
+    #print(title)

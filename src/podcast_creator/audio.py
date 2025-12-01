@@ -1,10 +1,13 @@
 from podcast_creator.logger import logger
 from pydub import AudioSegment, silence
+from mutagen.id3 import ID3, COMM, ID3NoHeaderError
+from mutagen.mp3 import MP3
 
-def convert_wav_to_mp3(audio_file_path, tags = None):
+
+def convert_wav_to_mp3(audio_file_path):
     logger.info(f"Converting {audio_file_path} WAV to MP3...")
     audio = AudioSegment.from_file(audio_file_path)
-    audio.export(audio_file_path, format="mp3", tags=tags)
+    audio.export(audio_file_path, format="mp3")
 
 def add_pre_and_post_audio(podcast_mp3_path):
     logger.info("Adding pre and post audio to podcast...")
@@ -52,6 +55,29 @@ def detect_silence_in_wav(wav_file_path):
     )
 
     return len(silent_sections) > 0  # Return True if any silence detected, else False
+
+def add_comment_to_mp3(mp3_path, comment_text):
+    # 1. Try to load existing ID3 tags, or create new ones if they don't exist
+    try:
+        audio = ID3(mp3_path)
+    except ID3NoHeaderError:
+        # If no ID3 header found, create a new one and attach it to the file
+        audio = MP3(mp3_path)
+        audio.add_tags()
+        audio = audio.tags # Now 'audio' refers to the ID3Tags object
+
+    # 2. Define the comment frame
+    new_comment_text = comment_text
+    comment_frame = COMM(encoding=3, lang='eng', desc='', text=[new_comment_text])
+
+    # 3. Add the comment frame to the ID3 tags
+    # This will replace any existing COMM frame with the same language and description
+    audio.add(comment_frame)
+
+    # 4. Save the changes
+    # If we used the ID3() constructor initially, calling save() works directly
+    audio.save()
+    logger.info(f"Added comment to {mp3_path}")
 
 if __name__ == '__main__':
     add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\Episode_96.mp3")
