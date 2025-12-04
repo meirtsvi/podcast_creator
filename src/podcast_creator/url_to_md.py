@@ -286,6 +286,21 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md, _ = get_markdown_from_url("https://www.theverge.com/report/820656/valve-interview-arm-gaming-steamos-pierre-loup-griffais")
+    prompt = f"""The following text is markdown formatted text of a web page. Do the following:
+    1. Convert md to regular, plain text
+    2. Remove all meta characters
+    3. Remove all links, keep only links titles
+    4. Remove ads text
+    5. Remove all references to other articles
+    Here is the article md text to work on:
+    {md}
+    """
+    from src.podcast_creator.common import call_genai_api
+    content = call_genai_api(prompt)
+    from podcast_creator.common import translate_text
+    content = translate_text(content, "hebrew")
+
     md = get_markdown_from_url("https://www.squid-club.com/blog/the-reality-of-ai-first-coding-that-nobodys-telling-you-about")
     md = get_markdown_from_url("https://www.reddit.com/r/algotrading/comments/1kgqcs7/using_machine_learning_for_trading_in_2025/")
     md = get_markdown_from_url("https://arxiv.org/abs/2503.09655")

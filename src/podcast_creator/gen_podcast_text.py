@@ -130,7 +130,7 @@ def generate_podcast_text(configuration: Configuration):
             parts.append(types.Part.from_text(text=content))
 
     # Use Pro model for better instruction following
-    model = "gemini-2.5-pro-preview-05-06"
+    model = "gemini-3-pro-preview"
 
     contents = [
         types.Content(
