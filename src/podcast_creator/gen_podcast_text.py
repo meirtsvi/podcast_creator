@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import csv
@@ -111,7 +112,7 @@ def generate_podcast_text(configuration: Configuration):
 
     # Calculate required tokens with generous buffer
     # Hebrew words might use more tokens
-    estimated_tokens = int(max_n_words * 2.0)  if configuration.output_language=="hebrew" else int(max_n_words) # Very generous for Hebrew
+    estimated_tokens = int(max_n_words * 2.5)  if configuration.output_language=="hebrew" else int(max_n_words * 1.5) # Very generous for Hebrew
     prompt = prompt.replace("{min_n_words}", str(min_n_words))
     prompt = prompt.replace("{max_n_words}", str(max_n_words))
 
@@ -140,7 +141,7 @@ def generate_podcast_text(configuration: Configuration):
     ]
 
     generate_content_config = types.GenerateContentConfig(
-        response_mime_type="text/plain",
+        response_mime_type="application/json",
         temperature=0.8,  # Higher temperature for more elaboration
         max_output_tokens=estimated_tokens,
     )
@@ -227,64 +228,33 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             else:
                 raise
 
-        # Fix pattern where host name and colon are on one line, and text is on the next line
-        lines = podcast_text.splitlines()
-        fixed_lines = []
-        found_pattern = False
-        i = 0
-        while i < len(lines):
-            current_line = lines[i].strip()
-            
-            # Check if current line is only "host_name:"
-            if i < len(lines) - 1 and (
-                current_line.strip() == f"{configuration.man_speaker_name}:" or 
-                current_line.strip() == f"{configuration.woman_speaker_name}:"
-            ):
-                next_line = lines[i + 1].strip()
-                # Check if next line doesn't start with "host_name: "
-                if next_line and \
-                   not next_line.startswith(f"{configuration.man_speaker_name}: ") and \
-                   not next_line.startswith(f"{configuration.woman_speaker_name}: "):
-                    # Combine the two lines
-                    combined_line = f"{current_line} {next_line}"
-                    fixed_lines.append(combined_line)
-                    found_pattern = True
-                    i += 2  # Skip the next line since we already processed it
-                    continue
-            
-            fixed_lines.append(lines[i])
-            i += 1
-        
-        # Only update podcast_text if we actually found and fixed the pattern
-        if found_pattern:
-            podcast_text = "\n".join(fixed_lines)
-            logger.info(f"Fixed podcast_text by combining host name lines with following text lines")
-
-        found_illegal_line = False
-        for line in podcast_text.splitlines():
-            if line.strip() == "":
-                continue
-            if not (line.startswith(configuration.man_speaker_name)
-                or line.startswith(configuration.woman_speaker_name)):
-                logger.info(f"Found line that doesn't start with host name: {line}")
-                found_illegal_line = True
-                break
-        if found_illegal_line:
-            logger.info(f"The generated text is not formatted with host name that begins each line. Trying again...")
-            continue
-
-        # Check if generation completed successfully
-        word_count = len(podcast_text.split())
-        is_complete = verify_text_completeness(podcast_text)
-
-        logger.info(f"Attempt {attempt + 1}: Generated {word_count} words, "
-                    f"finish_reason={finish_reason}, complete={is_complete}")
+        logger.info(f"Attempt {attempt + 1}: finish_reason={finish_reason}")
 
         # Check for truncation
         if finish_reason == "MAX_TOKENS" or str(finish_reason) == "FinishReason.MAX_TOKENS":
             logger.warning(f"Output was truncated (MAX_TOKENS reached). Retrying with higher limit...")
             generate_content_config.max_output_tokens = int(generate_content_config.max_output_tokens * 1.5)
             continue
+
+        try:
+            json_text = json.loads(podcast_text)
+        except json.decoder.JSONDecodeError:
+            logger.error(f"Output content is not a JSON: {podcast_text[:100]}...{podcast_text[-100:]}")
+            continue
+        podcast_text = ""
+        try:
+            main_list = json_text["script_lines"]
+            for item in main_list:
+                podcast_text += item["speaker"] + ": " + item["line"] + "\n"
+        except Exception as e:
+            logger.error(f"Error parsing JSON content: {e} on item {item if 'item' in locals() else 'N/A'}")
+            continue
+
+        # Check if generation completed successfully
+        word_count = len(podcast_text.split())
+        is_complete = verify_text_completeness(podcast_text)
+
+        logger.info(f"Generated {word_count} words, complete={is_complete}")
 
         # Check if text ends properly
         if not is_complete:
@@ -331,6 +301,21 @@ def verify_text_completeness(text):
 
 def main():
     from pathlib import Path as p
+
+    ep_folder = p(f"/tmp/ep/")
+    ep_folder.mkdir(parents=True, exist_ok=True)
+    configuration = Configuration("hebrew")
+    configuration.set_episode_details(episode_number="281", episode_title=f"title",
+                                      episode_description="עדכונים על מטהורס")
+    configuration.episode_folder = ep_folder
+    configuration.hosts = ['male', 'female']
+    configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
+    with open(f"/tmp/original_content.txt", "r", encoding="utf-8") as f:
+        article_text = f.readlines()
+        configuration.episode_contents = article_text
+    configuration.set_prompts(is_single_url=True)
+    podcast_text = generate_podcast_text(configuration)
+    print(f"Podcast text for episode: {podcast_text[:100]}... (length: {len(podcast_text)})")
 
     for ep_num in range(200, 248):
         try:
