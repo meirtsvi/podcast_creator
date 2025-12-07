@@ -107,7 +107,7 @@ MAKE SURE TO FOLLOW THESE INSTRUCTIONS OVERRIDING THE PROMPT TEMPLATE IN CASE OF
 The script MUST be in json format with a single array called "script_lines".
 The array contains objects with two fields: "speaker" and "line".
 Each object represents one line of dialogue.
-The "speaker" field should be either "{man_speaker}:" or "{woman_speaker}:".
+The "speaker" field should be either "{man_speaker}" or "{woman_speaker}".
 Keep {man_speaker} speak in {host1} voice and {woman_speaker} speak in {host2} voice.
 <!--END:TWO_HOSTS-->
 

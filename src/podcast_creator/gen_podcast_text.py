@@ -1,5 +1,6 @@
 import json
 import os
+import requests
 import re
 import csv
 
@@ -15,6 +16,68 @@ from podcast_creator.common import process_conditional_text
 dotenv.load_dotenv()
 
 WORDS_PER_MINUTE = int(os.getenv('WORDS_PER_MINUTE'))
+
+def add_diactritics(podcast_text):
+    """Add Hebrew diacritics (nikud) using the Nakdan API."""
+    logger.info("Adding diacritics to podcast text...")
+
+    try:
+        url = "https://nakdan-u1-0.loadbalancer.dicta.org.il/api"
+
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9,he;q=0.8,ru;q=0.7',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Content-Type': 'text/plain;charset=UTF-8',
+            'Origin': 'https://nakdanpro.dicta.org.il',
+            'Pragma': 'no-cache',
+            'Referer': 'https://nakdanpro.dicta.org.il/',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-site',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
+        }
+
+        payload = {
+            "task": "nakdan",
+            "data": podcast_text,
+            "addmorph": True,
+            "keepqq": False,
+            "matchpartial": True,
+            "nodageshdefmem": False,
+            "patachma": True,
+            "keepmetagim": True,
+            "genre": "modern",
+            "useTokenization": True,
+            "userData": "gave permission"
+        }
+
+        response = requests.post(url, headers=headers, data=json.dumps(payload), verify=False)
+        response.raise_for_status()
+
+        result = response.json()
+
+        # Reconstruct the text with diacritics
+        text_with_diacritics = ""
+        for item in result.get("data", []):
+            nakdan_data = item.get("nakdan", {})
+            options = nakdan_data.get("options", [])
+
+            # If there are options, use the first one (best choice)
+            if options:
+                text_with_diacritics += options[0].get("w", item.get("str", ""))
+            else:
+                # For separators (spaces, punctuation), use the original string
+                text_with_diacritics += item.get("str", "")
+
+        logger.info("Successfully added diacritics to podcast text")
+        return text_with_diacritics
+
+    except Exception as e:
+        logger.error(f"Error adding diacritics: {e}")
+        logger.info("Returning original text without diacritics")
+        return podcast_text
 
 def apply_translations(podcast_text, configuration):
     # --- Apply translations from translations.csv ---
@@ -183,6 +246,8 @@ def generate_podcast_text(configuration: Configuration):
         f.write(podcast_text)
     podcast_text = cleanup_text(podcast_text, configuration)
     podcast_text = apply_translations(podcast_text, configuration)
+    if configuration.output_language == "hebrew":
+        podcast_text = add_diactritics(podcast_text)
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
 
@@ -193,6 +258,7 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
                                      min_words, max_retries=3):
     """Generate podcast text with truncation detection and retry logic."""
 
+    best_match = None
     for attempt in range(max_retries):
         num_chunks = 0
         podcast_text = ""
@@ -261,6 +327,8 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
             continue
 
+        best_match = podcast_text
+
         # Check if we're reasonably close to target word count
         if word_count < min_words * 0.85:  # Relaxed to 85%
             logger.warning(f"Word count too low ({word_count} < {min_words * 0.85}). Retrying...")
@@ -270,10 +338,14 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         logger.info(f"Successfully generated {word_count} words")
         return podcast_text
 
-    # If we exhausted retries, return best attempt
-    logger.warning(f"Exhausted {max_retries} retries. Returning last attempt with {word_count} words")
-    return podcast_text
+        # If none of the attempts managed to produce full text, take the last attempt - not great but at least we will have episode to make
+        if not best_match:
+            best_match = podcast_text
 
+    # If we exhausted retries, return best attempt
+    best_match_word_count = len(best_match.split())
+    logger.warning(f"Exhausted {max_retries} retries. Returning best attempt with {best_match_word_count} words")
+    return best_match
 
 def verify_text_completeness(text):
     """Verify that text ends with a complete sentence."""
