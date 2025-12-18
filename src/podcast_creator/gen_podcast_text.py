@@ -102,10 +102,10 @@ def apply_translations(podcast_text, configuration):
             for src, tgt, gender in translations_3col:
                 if gender == "male" and line.startswith(configuration.man_speaker_name + ":"):
                     pattern = r'(?<!\w)' + re.escape(src) + r'(?!\w)'
-                    lines[i] = re.sub(pattern, tgt, line)
+                    lines[i] = re.sub(pattern, tgt, lines[i])
                 elif gender == "female" and line.startswith(configuration.woman_speaker_name + ":"):
                     pattern = r'(?<!\w)' + re.escape(src) + r'(?!\w)'
-                    lines[i] = re.sub(pattern, tgt, line)
+                    lines[i] = re.sub(pattern, tgt, lines[i])
         podcast_text = "\n".join(lines)
         return podcast_text
 
@@ -246,8 +246,8 @@ def generate_podcast_text(configuration: Configuration):
         f.write(podcast_text)
     podcast_text = cleanup_text(podcast_text, configuration)
     podcast_text = apply_translations(podcast_text, configuration)
-    if configuration.output_language == "hebrew":
-        podcast_text = add_diactritics(podcast_text)
+    # if configuration.output_language == "hebrew":
+    #     podcast_text = add_diactritics(podcast_text)
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
 
@@ -258,7 +258,7 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
                                      min_words, max_retries=3):
     """Generate podcast text with truncation detection and retry logic."""
 
-    best_match = None
+    best_match = ""
     for attempt in range(max_retries):
         num_chunks = 0
         podcast_text = ""
@@ -327,7 +327,8 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
             continue
 
-        best_match = podcast_text
+        if len(podcast_text) > len(best_match):
+            best_match = podcast_text
 
         # Check if we're reasonably close to target word count
         if word_count < min_words * 0.85:  # Relaxed to 85%
@@ -339,7 +340,7 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         return podcast_text
 
         # If none of the attempts managed to produce full text, take the last attempt - not great but at least we will have episode to make
-        if not best_match:
+        if best_match=="":
             best_match = podcast_text
 
     # If we exhausted retries, return best attempt
@@ -372,6 +373,11 @@ def verify_text_completeness(text):
     return False
 
 def main():
+    with open("c:\\temp\\podcast_text_original.txt", "r", encoding="utf-8") as f:
+        podcast_text = f.read()
+    configuration = Configuration("hebrew")
+    podcast_text = apply_translations(podcast_text, configuration)
+
     from pathlib import Path as p
 
     ep_folder = p(f"/tmp/ep/")

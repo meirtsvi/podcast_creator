@@ -236,25 +236,24 @@ def get_markdown_from_url_inner(url):
 
     if "themarker.com" in url:
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            #'Accept-Language': 'en-US,en;q=0.9,he;q=0.8,ru;q=0.7',
-            #'Cache-Control': 'no-cache',
-            #'Connection': 'keep-alive',
-            #'Pragma': 'no-cache',
-            #'Referer': 'https://login.themarker.com/',
-            #'Sec-Fetch-Dest': 'document',
-            #'Sec-Fetch-Mode': 'navigate',
-            #'Sec-Fetch-Site': 'same-site',
-            #'Sec-Fetch-User': '?1',
-            #'Upgrade-Insecure-Requests': '1',
-            #'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-            #'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-            #'sec-ch-ua-mobile': '?0',
-            #'sec-ch-ua-platform': '"macOS"',
-            'Cookie': 'sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjUtMTAtMzEgNmFhMTBjNzNmZmJjOWI2M2RiZGJkMTNiMGVjMjEyMDUifQ==; aat=T3FIYTRWOURkTnZGSmp3; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; productsStatus=BOTHSuscribedPaying_; acl=acl; cebsp_=3'
-#            'Cookie': 'ab-test-group=B; anonymousId=17623320712696; _htzwif=none; acl=acl; _k5a=75@{"u":[{"uid":"YzHlMYzX6jeuWXnt","c":"desktop","ts":1760781050},1760871050]}; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Oct+18+2025+12%3A50%3A51+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; aat=T3FIYTRWOURkTnZGSmp3; productsStatus=BOTHSuscribedPaying_; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjUtMTAtMTggYjJlNjVlNmJlYzgxYTZhNzM3MzdjMDVhMmUyNjcxMjkifQ==; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9'
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'accept-language': 'en-US,en;q=0.9,he;q=0.8',
+            'cache-control': 'no-cache',
+            'dnt': '1',
+            'pragma': 'no-cache',
+            'priority': 'u=0, i',
+            'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'document',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-site': 'none',
+            'sec-fetch-user': '?1',
+            'upgrade-insecure-requests': '1',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+            'Cookie': 'anonymousId=17685570035687; aat=T3FIYTRWOURkTnZGSmp3; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.722377055.1760781021; _gcl_au=1.1.186545070.1760781021; _fbp=fb.1.1760781021031.562396184486743961; ab-test-group=B; acl=acl; cebs=1; vad-loc-code=il; _ce.clock_data=-109%2C109.186.83.172%2C1%2C89db729cfcdc129111f017b0e7ac324a%2CChrome%2CIL; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; dmp-FE-cookie-ts=1765461664947; _ce.s=v~99eaf59224c39ce9331ce338c8b6a63745b9c9f7~lcw~1765576105153~vir~new~lva~1765576104417~vpv~2~v11ls~49373a90-d7a4-11f0-997d-0132f8230e3b~v11.cs~22588~v11.s~49373a90-d7a4-11f0-997d-0132f8230e3b~v11.vs~99eaf59224c39ce9331ce338c8b6a63745b9c9f7~v11.fsvd~eyJ1cmwiOiJ0aGVtYXJrZXIuY29tL3RlY2huYXRpb24vKi90eS1hcnRpY2xlLy5oaWdobGlnaHQvKiIsInJlZiI6IiIsInV0bSI6WyJBcHBfU2hhcmUiLCJpT1NfTmF0aXZlIiwiIiwiIiwiIl19~v11.sla~1765576105149~v11.wss~1765576105150~v11.ss~1765576237167~lcw~1765576237167; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjUtMTItMTIgOWMxMTIzNmQ3N2MyYWVhNzE0YjViNmRiNDE4NzUwOGQifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; ra=1; _ga_8CR4051LQE=GS2.1.s1765576103$o4$g1$t1765576479$j8$l0$h0; cebsp_=4; OptanonConsent=isGpcEnabled=0&datestamp=Fri+Dec+12+2025+23%3A54%3A41+GMT%2B0200+(Israel+Standard+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; _k5a=75@{"u":[{"uid":"GG2hG2fU6xq4O49N","c":"desktop","ts":1765576481},1765666481]}; cto_bidid=-k7nUV9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqeGhrZmFxZEhYSCUyQk1qZUlTUDczYXpNM3o2U0ZzWjdQdVF2JTJCcEd1Vlc3MDglM0Q; cto_bundle=Wo1ms180aUU5RkZCSFRHbFlPcmZGZm9HaXluMkRucnJqSURSeGU0eVNCd3ZGQjNHYnZ2eWVqbGRFeVd0cFRhNHVmaDZGSTBGOWlYNDV3V3AlMkZTUHN0aW1QNGtwdFVUaUxqQ3dqaFY5JTJCaGxEWDdjZEJuU2VabWI1V0FJTDhVcXdURFVNWk1LU1BVbGRIM2N6bjJXMWRHblVLdmJBJTNEJTNE; __gads=ID=2b3f042d99767cee:T=1760781023:RT=1765578190:S=ALNI_MYBICg_QW_ZWPlv8zV3ccmWoBgE2A; __eoi=ID=97d93ac0b0e584f1:T=1760781023:RT=1765578190:S=AA-Afjb5erV-3YNLtWUmpUwulUyl'
         }
+
 
     with requests.Session() as session:
         # Attempt 1: Without headers
@@ -286,6 +285,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md, _ = get_markdown_from_url("https://www.themarker.com/technation/2025-12-11/ty-article/.highlight/0000019b-0cd0-d868-affb-5cf9d2a10000?utm_source=App_Share&utm_medium=iOS_Native")
     md, _ = get_markdown_from_url("https://www.theverge.com/report/820656/valve-interview-arm-gaming-steamos-pierre-loup-griffais")
     prompt = f"""The following text is markdown formatted text of a web page. Do the following:
     1. Convert md to regular, plain text
