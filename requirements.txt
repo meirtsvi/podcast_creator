@@ -14,4 +14,4 @@ playwright
 mailersend
 langdetect
 pypdf
-
+psutil
