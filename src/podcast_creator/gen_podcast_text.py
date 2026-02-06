@@ -220,7 +220,7 @@ def generate_podcast_text(configuration: Configuration):
         generate_content_config=generate_content_config,
         configuration=configuration,
         min_words=min_n_words,
-        max_retries=10,  # Increased retries
+        max_retries=20,
     )
 
     # Final verification
@@ -373,12 +373,24 @@ def verify_text_completeness(text):
     return False
 
 def main():
-    with open("c:\\temp\\podcast_text_original.txt", "r", encoding="utf-8") as f:
+    from pathlib import Path as p
+    #with open("c:\\temp\\podcast_text_original.txt", "r", encoding="utf-8") as f:
+    ep_folder = p(f"/tmp/ep/")
+    with open(r"c:\tmp\15\587\podcast_content.txt", "r", encoding="utf-8") as f:
         podcast_text = f.read()
     configuration = Configuration("hebrew")
+    configuration.episode_contents = podcast_text
+    configuration.episode_length = 60
+    configuration.set_episode_details(episode_number="281", episode_title=f"title",
+                                      episode_description="עדכונים על מטהורס")
+    configuration.episode_folder = ep_folder
+    configuration.hosts = ['male', 'female']
+    configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
+    configuration.set_prompts(is_single_url=True)
+    podcast_text = generate_podcast_text(configuration)
+
     podcast_text = apply_translations(podcast_text, configuration)
 
-    from pathlib import Path as p
 
     ep_folder = p(f"/tmp/ep/")
     ep_folder.mkdir(parents=True, exist_ok=True)
