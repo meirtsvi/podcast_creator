@@ -223,10 +223,13 @@ def generate_title_from_url(url):
                 title = title.split(" - by ")[0].strip()
             soup.title.string = title
             return True, soup.title.string.strip(), final_url
-        if md and md.startswith("# "):
-            first_line = md.splitlines()[0]
-            result = first_line[2:]
-            return True, result, final_url
+        if md:
+            lines = md.splitlines()
+            # Check if any of the first 3 lines starts with "# "
+            for i in range(min(3, len(lines))):
+                line = lines[i].strip()
+                if line.startswith("# "):
+                    return True, line[2:], final_url
     except Exception as e:
         logger.error(f"Error extracting title from {url}: {str(e)}")
         return False, "", ""
