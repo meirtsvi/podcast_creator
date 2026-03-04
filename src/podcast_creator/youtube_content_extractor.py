@@ -1,9 +1,105 @@
 import os
 import re
+import ssl
 import subprocess
+import sys
 import tempfile
 
+import requests
+import urllib3
+
 from podcast_creator.logger import logger
+from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+
+# Fix for macOS SSL certificate verification issue
+ssl._create_default_https_context = ssl._create_unverified_context
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def extract_video_id(url: str) -> str:
+    """Extract the video ID from various YouTube URL formats."""
+    patterns = [
+        r"(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\/]|$)",
+        r"(?:youtu\.be\/)([0-9A-Za-z_-]{11})",
+        r"(?:embed\/)([0-9A-Za-z_-]{11})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    raise ValueError(f"Could not extract video ID from URL: {url}")
+
+
+def get_video_title(video_id: str) -> str:
+    """Scrape the video title from the YouTube page."""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        response = requests.get(url, headers={"Accept-Language": "en-US"}, verify=False)
+        match = re.search(r'"title":"([^"]+)"', response.text)
+        if match:
+            return match.group(1).encode().decode("unicode_escape")
+    except Exception:
+        pass
+    return "Unknown Title"
+
+
+def get_transcript(video_id: str, languages: list[str] = None):
+    """Fetch the transcript for a given video ID (compatible with v1.x API)."""
+    try:
+        ytt = YouTubeTranscriptApi()
+        transcript_list = ytt.list(video_id)
+
+        if languages:
+            transcript = transcript_list.find_transcript(languages)
+        else:
+            try:
+                transcript = transcript_list.find_manually_created_transcript(
+                    transcript_list._manually_created_transcripts.keys()
+                )
+            except Exception:
+                transcript = transcript_list.find_generated_transcript(
+                    transcript_list._generated_transcripts.keys()
+                )
+
+        fetched = transcript.fetch()
+        return [{"text": s.text, "start": s.start, "duration": s.duration} for s in fetched]
+
+    except TranscriptsDisabled:
+        raise RuntimeError("Transcripts are disabled for this video.")
+    except NoTranscriptFound:
+        raise RuntimeError("No transcript found for this video.")
+
+
+def format_transcript(transcript_list, include_timestamps: bool = True) -> str:
+    """Format transcript entries into readable text."""
+    lines = []
+    for entry in transcript_list:
+        if include_timestamps:
+            start = entry["start"]
+            minutes = int(start // 60)
+            seconds = int(start % 60)
+            lines.append(f"[{minutes:02d}:{seconds:02d}] {entry['text']}")
+        else:
+            lines.append(entry["text"])
+    return "\n".join(lines)
+
+
+def extract_content_via_transcript_api(youtube_url: str, lang: str = 'en'):
+    """
+    Try to extract content using youtube-transcript-api.
+    Returns (title, description, transcript_text) or (None, None, None) on failure.
+    """
+    try:
+        video_id = extract_video_id(youtube_url)
+        title = get_video_title(video_id)
+        transcript = get_transcript(video_id, languages=[lang])
+        transcript_text = format_transcript(transcript, include_timestamps=False)
+        if transcript_text and transcript_text.strip():
+            return title, None, transcript_text
+    except Exception as e:
+        logger.warning(f"youtube-transcript-api failed for {youtube_url}: {e}")
+    return None, None, None
+
 
 def download_subtitles(youtube_url: str, lang: str = 'en'):
     """
@@ -125,6 +221,7 @@ def extract_content_from_youtube(youtube_url, lang='en'):
 def extract_content_from_youtube_innner(youtube_url, lang='en'):
     """
     Downloads subtitles from a YouTube video and extracts sentences without duplicates.
+    First tries youtube-transcript-api, falls back to yt-dlp if that fails.
 
     :param youtube_url: URL of the YouTube video
     :param lang: Language code for the subtitles (default is 'en' for English)
@@ -132,6 +229,14 @@ def extract_content_from_youtube_innner(youtube_url, lang='en'):
                 description is the video description, and cleansed_script is the extracted
                 sentences without duplicates.
     """
+    # Try youtube-transcript-api first
+    title, description, transcript_text = extract_content_via_transcript_api(youtube_url, lang)
+    if transcript_text:
+        logger.info(f"Transcribed youtube url {youtube_url} via transcript API, title: {title}, transcript: {transcript_text}")
+        return title, description, transcript_text
+
+    # Fall back to yt-dlp
+    logger.info(f"Falling back to yt-dlp for {youtube_url}")
     title, description, vtt_text = download_subtitles(youtube_url, lang)
     if vtt_text:
         cleansed_script = extract_sentences_no_duplicates(vtt_text)
@@ -144,6 +249,6 @@ def extract_content_from_youtube_innner(youtube_url, lang='en'):
 
 if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=LCEmiRjPEtQ"
-    title, description, cleansed_script = extract_content_from_youtube(url, lang='en')
+    url = "https://www.youtube.com/watch?v=TdbpoDjIvPk"
     title, description, cleansed_script = extract_content_from_youtube(url, lang='en')
     print(cleansed_script)

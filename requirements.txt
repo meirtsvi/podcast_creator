@@ -15,3 +15,5 @@ mailersend
 langdetect
 pypdf
 psutil
+youtube-transcript-api
+
