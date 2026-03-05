@@ -65,6 +65,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     all_urls = []
     all_titles = []
     all_lens = []
+    url_without_content = []
 
     with open(configuration.links_filename, "r", encoding="utf-8") as f:
         for line in f:
@@ -75,6 +76,7 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
 
                 valid, title, url = generate_title_from_url(url)
                 if not valid:
+                    url_without_content.append(url)
                     continue
 
                 all_urls.append(url.rstrip('/'))
@@ -100,7 +102,6 @@ def process_links(configuration: Configuration, is_single_url_episode: bool, pro
     filtered_lens = []
     remaining_content = []
 
-    url_without_content = []
     for url, title, length in zip(remaining_urls, remaining_titles, remaining_lens):
         # Try to extract content from the URL
         logger.info(f"Extracting content from {url}...")
