@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import ssl
 import subprocess
 import sys
@@ -196,6 +197,73 @@ def extract_sentences_no_duplicates(vtt_text):
 
     return "\n".join(sentences)
 
+def _find_yt_dlp() -> str:
+    """Find the yt-dlp executable (PATH or Windows fallback)."""
+    path = shutil.which("yt-dlp")
+    if path:
+        return path
+    win_path = "c:\\util\\yt-dlp"
+    if os.path.exists(win_path):
+        return win_path
+    return None
+
+
+def extract_content_via_whisper(youtube_url: str):
+    """
+    Download audio via yt-dlp and transcribe with local whisper.
+    Returns (title, None, transcript_text) or (None, None, None) on failure.
+    """
+    try:
+        yt_dlp = _find_yt_dlp()
+        if not yt_dlp:
+            raise RuntimeError("yt-dlp not found")
+
+        whisper_bin = shutil.which("whisper")
+        if not whisper_bin:
+            raise RuntimeError("whisper is not installed")
+
+        video_id = extract_video_id(youtube_url)
+        title = get_video_title(video_id)
+
+        with tempfile.TemporaryDirectory() as td:
+            audio_template = os.path.join(td, "audio.%(ext)s")
+            dl = subprocess.run(
+                [yt_dlp, "-f", "bestaudio/best", "--extract-audio",
+                 "--audio-format", "mp3", "-o", audio_template, youtube_url],
+                capture_output=True, text=True
+            )
+            if dl.returncode != 0:
+                raise RuntimeError(f"yt-dlp audio download failed: {dl.stderr.strip()}")
+
+            mp3s = [os.path.join(td, f) for f in os.listdir(td) if f.endswith(".mp3")]
+            if not mp3s:
+                raise RuntimeError("audio download produced no mp3")
+
+            outdir = os.path.join(td, "whisper_out")
+            os.makedirs(outdir, exist_ok=True)
+            tr = subprocess.run(
+                [whisper_bin, mp3s[0], "--model", "base",
+                 "--output_format", "txt", "--output_dir", outdir],
+                capture_output=True, text=True
+            )
+            if tr.returncode != 0:
+                raise RuntimeError(f"whisper transcription failed: {tr.stderr.strip()}")
+
+            txts = [os.path.join(outdir, f) for f in os.listdir(outdir) if f.endswith(".txt")]
+            if not txts:
+                raise RuntimeError("whisper produced no transcript")
+
+            with open(txts[0], "r", encoding="utf-8") as f:
+                text = f.read().strip()
+            if not text:
+                raise RuntimeError("whisper produced empty transcript")
+
+            return title, None, text
+    except Exception as e:
+        logger.warning(f"whisper fallback failed for {youtube_url}: {e}")
+    return None, None, None
+
+
 youtube_extraction_cache = {}
 class youtube_extracted_data:
     def __init__(self, title, description, content):
@@ -242,9 +310,16 @@ def extract_content_from_youtube_innner(youtube_url, lang='en'):
         cleansed_script = extract_sentences_no_duplicates(vtt_text)
         logger.info(f"Transcribe youtube url {youtube_url}, title: {title}, description: {description}, cleansed_script: {cleansed_script}")
         return title, description, cleansed_script
-    else:
-        logger.warning(f"Failed to transcribe youtube url {youtube_url}")
-        return None, None, None
+
+    # Fall back to whisper (local audio transcription)
+    logger.info(f"Falling back to whisper for {youtube_url}")
+    title, description, whisper_text = extract_content_via_whisper(youtube_url)
+    if whisper_text:
+        logger.info(f"Transcribed youtube url {youtube_url} via whisper, title: {title}")
+        return title, description, whisper_text
+
+    logger.warning(f"Failed to transcribe youtube url {youtube_url}")
+    return None, None, None
 
 
 if __name__ == "__main__":
