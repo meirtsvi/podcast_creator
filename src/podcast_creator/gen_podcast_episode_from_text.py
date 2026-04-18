@@ -315,7 +315,10 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
     logger.info("Generating podcast episode audio from text...")
 
     #model = "gemini-2.5-flash-preview-tts"
+
+
     model = "gemini-2.5-pro-preview-tts"
+    #model = "gemini-3.1-flash-tts-preview"
     # List to store generated WAV files
     generated_files = []
 

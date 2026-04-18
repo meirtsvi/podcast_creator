@@ -16,7 +16,7 @@ from podcast_creator.url_to_md import get_markdown_from_url
 from podcast_creator.logger import logger
 from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 
-def call_genai_api(prompt):
+def call_genai_api(prompt, fast_mode=False):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     max_retries = 3
     for attempt in range(max_retries):
@@ -40,12 +40,12 @@ def call_genai_api(prompt):
     ret = response.text.strip()
     return ret
 
-def translate_text(text, target_language):
+def translate_text(text, target_language, fast_mode=False):
     prompt = f"Translate the following text to {target_language}," \
              f"Provide only the translated text without any additional text." \
              f"Don't create empty lines. " \
              f"Keep as a plain text. no newlines.:\n" + text
-    translated_text = call_genai_api(prompt)
+    translated_text = call_genai_api(prompt, fast_mode)
     return translated_text
 
 def process_conditional_text(content, conditions):

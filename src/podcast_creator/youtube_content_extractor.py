@@ -129,6 +129,7 @@ def download_subtitles(youtube_url: str, lang: str = 'en'):
                 "--write-auto-subs",
                 "--sub-lang", lang,
                 "--skip-download",
+                "--cookies", r"c:\util\cookies.txt", "--remote-components", "ejs:github",
                 "--output", output_file,
                 "--quiet",
                 youtube_url

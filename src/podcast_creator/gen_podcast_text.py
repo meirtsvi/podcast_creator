@@ -194,7 +194,7 @@ def generate_podcast_text(configuration: Configuration):
             parts.append(types.Part.from_text(text=content))
 
     # Use Pro model for better instruction following
-    model = "gemini-3-pro-preview"
+    model = "gemini-3.1-pro-preview"
 
     contents = [
         types.Content(
@@ -220,7 +220,7 @@ def generate_podcast_text(configuration: Configuration):
         generate_content_config=generate_content_config,
         configuration=configuration,
         min_words=min_n_words,
-        max_retries=20,
+        max_retries=10,
     )
 
     # Final verification
@@ -306,7 +306,9 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             json_text = json.loads(podcast_text)
         except json.decoder.JSONDecodeError:
             logger.error(f"Output content is not a JSON: {podcast_text[:100]}...{podcast_text[-100:]}")
+            logger.error(f"Output content is not a JSON: {podcast_text}")
             continue
+        original_podcast_text = podcast_text
         podcast_text = ""
         try:
             main_list = json_text["script_lines"]
@@ -314,6 +316,7 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
                 podcast_text += item["speaker"] + ": " + item["line"] + "\n"
         except Exception as e:
             logger.error(f"Error parsing JSON content: {e} on item {item if 'item' in locals() else 'N/A'}")
+            logger.error(f"Error parsing JSON content: {original_podcast_text}")
             continue
 
         # Check if generation completed successfully
