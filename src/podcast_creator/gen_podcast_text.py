@@ -311,7 +311,13 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         original_podcast_text = podcast_text
         podcast_text = ""
         try:
-            main_list = json_text["script_lines"]
+            if isinstance(json_text, dict):
+                main_list = json_text["script_lines"]
+            elif isinstance(json_text, list):
+                main_list = json_text
+            else:
+                raise TypeError(f"Unexpected JSON root type: {type(json_text).__name__}")
+
             for item in main_list:
                 podcast_text += item["speaker"] + ": " + item["line"] + "\n"
         except Exception as e:
