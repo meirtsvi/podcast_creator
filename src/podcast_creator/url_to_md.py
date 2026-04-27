@@ -134,7 +134,7 @@ def _found_text(article: str):
             continue
         if not line.startswith("#"):
             n_text_lines += 1
-    return n_text_lines > 4
+    return n_text_lines > 2
 
 def _extract_from_trafilatura(html: str) -> str:
     result = extract(html, output_format="markdown", favor_precision=True, with_metadata=True)
@@ -311,6 +311,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md, _ = get_markdown_from_url("https://www.calcalist.co.il/calcalistech/article/bkkiry56be")
     md, _ = get_markdown_from_url("https://www.themarker.com/technation/2026-04-19/ty-article/.premium/0000019d-a45f-df26-a1bf-a5dfb0fe0000?utm_source=App_Share&utm_medium=iOS_Native")
 
     md, _ = get_markdown_from_url("https://www.themarker.com/technation/2026-04-19/ty-article/.premium/0000019d-a45f-df26-a1bf-a5dfb0fe0000?utm_source=App_Share&utm_medium=iOS_Native")
