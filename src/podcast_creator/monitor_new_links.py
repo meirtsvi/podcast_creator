@@ -24,6 +24,9 @@ class FileChangeHandler(FileSystemEventHandler):
         if GEN_PODCAST_TRIGGER_FILENAME and event_path_abs == os.path.abspath(GEN_PODCAST_TRIGGER_FILENAME):
             logger.info(f"Creation detected for trigger file {GEN_PODCAST_TRIGGER_FILENAME}, running process_languages()...")
             process_languages("")
+
+
+
             return # Event handled as trigger file creation
 
 if __name__ == "__main__":
@@ -52,6 +55,7 @@ if __name__ == "__main__":
         logger.info(f"Monitoring started for: {'; '.join(watched_items_log)}")
         logger.info("Press Ctrl+C to stop.")
         try:
+
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
