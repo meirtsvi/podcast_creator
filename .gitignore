@@ -13,3 +13,5 @@ __pycache__/
 *.pyc
 dist/
 podcast_creator.egg-info/
+src/podcast_creator/.vscode/settings.json
+.vscode/settings.json

@@ -89,6 +89,27 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
     return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
 
 
+def _extract_themarker_markdown(raw_html: str):
+    tree = html.fromstring(raw_html)
+    title_el = tree.xpath('//*[@data-testid="article-title"] | //h1')
+    title = title_el[0].text_content().strip() if title_el else None
+    subtitle_el = tree.xpath('//*[@data-testid="article-subtitle"]')
+    subtitle = subtitle_el[0].text_content().strip() if subtitle_el else None
+    paragraphs = [
+        el.text_content().strip()
+        for el in tree.xpath(
+            '//*[@data-testid="article-body-wrapper"]//*[@data-testid="rich-text"]')
+        if el.text_content().strip() and 'חדשות, ידיעות' not in el.text_content()
+    ]
+    if not paragraphs and not subtitle:
+        return None
+    parts = [f"# {title}"] if title else []
+    if subtitle:
+        parts.append(subtitle)
+    parts.extend(paragraphs)
+    return "\n\n".join(parts)
+
+
 def playwright_extract_to_markdown(url: str):
     """
     Extracts markdown from a URL using Playwright and returns the markdown
@@ -174,6 +195,11 @@ def _fetch_and_extract(url, session, headers=None):
         if '<html' not in html_string.lower():
             html_string = f'<html><body>{html_string}</body></html>'
 
+        if "themarker.com" in url:
+            md_themarker = _extract_themarker_markdown(html_string)
+            if md_themarker and _found_text(md_themarker):
+                return md_themarker, response
+
         # Method 1: trafilatura.extract
         md_extract = _extract_from_trafilatura(html_string)
         if md_extract and not _found_text(md_extract):
@@ -184,18 +210,10 @@ def _fetch_and_extract(url, session, headers=None):
         if md_fallback and not _found_text(md_fallback):
             md_fallback = ""
 
-        # Compare and return the longest markdown content
-        len_extract = len(md_extract) if md_extract else 0
-        len_fallback = len(md_fallback) if md_fallback else 0
-
-        if len_extract > len_fallback:
-            logger.info(f"extract() produced longer content for {url}")
-            return md_extract, response
-        elif len_fallback > 0:
-            logger.info(f"html_to_markdown_fallback() produced longer content for {url}")
-            return md_fallback, response
-        else:
-            return None, response
+        candidates = [md for md in (md_extract, md_fallback) if md and _found_text(md)]
+        if candidates:
+            return max(candidates, key=len), response
+        return None, response
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to fetch {url} with headers={headers is not None}. Error: {e}")
@@ -272,10 +290,8 @@ def get_markdown_from_url_inner(url):
             'sec-fetch-user': '?1',
             'upgrade-insecure-requests': '1',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-            'Cookie': 'anonymousId=17831757416225; _fbp=fb.1.1775399730957.552462482310956727; aat=WFVkZjB5djBNQVlOQzht; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.999789562.1775399766; _gcl_au=1.1.913945240.1775399766; _twpid=tw.1775399766476.15276858734047806; _sharedID=dc7f5129-75d7-458d-b2f1-46b6b19faaac; _sharedID_cst=znv0HA%3D%3D; _cq_duid=1.1775450394.9Od6SA5RJeW3FKpA; _cq_session=1.1775450394996.AqbRNrPIvq48FaSu.1775450394996; ab-test-group=A; vad-loc-code=il; acl=acl; cebs=1; _ce.clock_data=-1038%2C89.139.52.179%2C1%2C90daa551604269dbcdcf237b5cc700f3%2CChrome%2CIL; __gads=ID=e38805cfb21411b7:T=1775399779:RT=1779817045:S=ALNI_MYNtmQCJ6_sVpiBxvmASFs24XbfCw; __gpi=UID=000013bb41326c68:T=1775399779:RT=1779817045:S=ALNI_MZr84Vjq2YnWHuEoZ0eGoQMWdZoZw; __eoi=ID=df1f0089e7c7b54d:T=1775399779:RT=1779817045:S=AA-Afjal_MsklKQwFI3X8c2JlvS9; _pubcid=c5697233-4af4-4ede-a3a1-52fb5bc3afcf; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; _cc_id=675f9ea13e32d6252382baaebd197bea; panoramaId_expiry=1780421847525; panoramaId=6f1af924621ddfa4515c549834be185ca02ca73fd19aa3023161315c8afc9f4a; panoramaIdType=panoDevice; dmp-FE-cookie-ts=1779803316741; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjYtMDUtMjYgNDgzZmQyZDdlMTcxYWVkZDg4OTRiYjk4ZjVjYjRmNzYifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; ra=1; _ga_8CR4051LQE=GS2.1.s1779817043$o4$g1$t1779817096$j7$l0$h0; _ce.s=v~d805005791ae47ccd872e704086038f8b09f5bb9~vir~new~lva~1779817043920~vpv~2~v11ls~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.cs~22588~v11.s~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.vs~d805005791ae47ccd872e704086038f8b09f5bb9~v11.sla~1779817044975~v11.wss~1779817045009~v11.ss~1779817045021~lcw~1779817098656; cebsp_=5; cto_bundle=D7tG4F80aUU5RkZCSFRHbFlPcmZGZm9HaXlsZGRTbGhQcFNGcU85cUt6NVAlMkY4MUZPb3ZVYnQyZkR0VlZXJTJCSGpiR2J4dUZabjJ6NE5yVWVZZU9zMG1kUGdBWW9DWnEzelhuS3dPbmV4VEJ4WU9SJTJGZ01WNmVUcVVnSzk5SUZWczVRdzVaYWRKSTV3aWpLdmViZzNvUlpuNHBGOWclM0QlM0Q; cto_bidid=BEg4gV9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqaWwzMU5yWE9JdDdRZkNTNEFxRUNEUWpLZDVHJTJCM043ZVpUNU1NMmdvZHJvJTNE; OptanonConsent=isGpcEnabled=0&datestamp=Tue+May+26+2026+20%3A38%3A37+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; _k5a=75@{"u":[{"uid":"RQPmrQQ5p8bcKbq3","c":"desktop","ts":1779817127},1779907127]}'
-            # 'Cookie': 'anonymousId=17685570035687; aat=T3FIYTRWOURkTnZGSmp3; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.722377055.1760781021; _fbp=fb.1.1760781021031.562396184486743961; ra=1; ab-test-group=B; acl=acl; _gcl_au=1.1.426889494.1772443740; _twpid=tw.1772443740497.760146166291941114; cebs=1; vad-loc-code=il; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; _ce.clock_data=-738%2C85.64.148.88%2C1%2C7c73ef5b8d3235ae0606f2e84e457ff5%2CChrome%2CIL; _sharedID=7e82ffd6-edf6-450e-ae7d-bdd958f0a576; _sharedID_cst=znv0HA%3D%3D; dmp-FE-cookie-ts=1772444861542; _ce.s=v~99eaf59224c39ce9331ce338c8b6a63745b9c9f7~lcw~1772446634964~vir~new~lva~1772443740837~vpv~3~v11ls~fc1b05f0-1620-11f1-9c16-0fc296b9c546~v11.cs~22588~v11.s~fc1b05f0-1620-11f1-9c16-0fc296b9c546~v11.vs~99eaf59224c39ce9331ce338c8b6a63745b9c9f7~v11.fsvd~eyJ1cmwiOiJ0aGVtYXJrZXIuY29tL3RlY2huYXRpb24vKi90eS1hcnRpY2xlLy5oaWdobGlnaHQvKiIsInJlZiI6IiIsInV0bSI6WyJBcHBfU2hhcmUiLCJpT1NfTmF0aXZlIiwiIiwiIiwiIl19~v11.sla~1772446634961~v11.wss~1772446634961~v11.ss~1772446634963~lcw~1772447034726; __gads=ID=2b3f042d99767cee:T=1760781023:RT=1772447036:S=ALNI_MYBICg_QW_ZWPlv8zV3ccmWoBgE2A; __eoi=ID=97d93ac0b0e584f1:T=1760781023:RT=1772447036:S=AA-Afjb5erV-3YNLtWUmpUwulUyl; cebsp_=7; OptanonConsent=isGpcEnabled=0&datestamp=Mon+Mar+02+2026+12%3A25%3A06+GMT%2B0200+(Israel+Standard+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; _k5a=75@{"u":[{"uid":"bbz0Aiw4AqrqhNtQ","c":"desktop","ts":1772447106},1772537106]}; cto_bidid=ktOyyV9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqeGhrZmFxZEhYSCUyQk1qZUlTUDczYXpMJTJGTmduQzg5VTJEazFUYjRGek13ekklM0Q; cto_bundle=wOd-GV80aUU5RkZCSFRHbFlPcmZGZm9HaXlpYWElMkJ0TmlpbDFLTVhiYTU4U0VETkRRS09ubXI5ZDdKcVFCRlE3Y2RKclQ2amxlTmFqckNzakZ4T0VjUDhZckw5c0dpWVpOZXczdVhWR2UyblU1M0xyam9VemRNS0RSbnVUZTFuUkZ0b0tUT0xrNnZMUm9IQko4TkRMRmhFTFpUUSUzRCUzRA; _ga_8CR4051LQE=GS2.1.s1772446633$o7$g1$t1772447257$j60$l0$h0; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjYtMDMtMDIgOTAzNTU4YTA1NzQzZjdiZTE5YjM4OThiMGM5OGRlZDYifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9'
+            'Cookie': os.getenv("THEMARKER_COOKIE") or 'anonymousId=17831757416225; _fbp=fb.1.1775399730957.552462482310956727; aat=WFVkZjB5djBNQVlOQzht; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.999789562.1775399766; _gcl_au=1.1.913945240.1775399766; _twpid=tw.1775399766476.15276858734047806; _sharedID=dc7f5129-75d7-458d-b2f1-46b6b19faaac; _sharedID_cst=znv0HA%3D%3D; _cq_duid=1.1775450394.9Od6SA5RJeW3FKpA; _cq_session=1.1775450394996.AqbRNrPIvq48FaSu.1775450394996; ab-test-group=A; vad-loc-code=il; acl=acl; cebs=1; _ce.clock_data=-1038%2C89.139.52.179%2C1%2C90daa551604269dbcdcf237b5cc700f3%2CChrome%2CIL; __gads=ID=e38805cfb21411b7:T=1775399779:RT=1779817045:S=ALNI_MYNtmQCJ6_sVpiBxvmASFs24XbfCw; __gpi=UID=000013bb41326c68:T=1775399779:RT=1779817045:S=ALNI_MZr84Vjq2YnWHuEoZ0eGoQMWdZoZw; __eoi=ID=df1f0089e7c7b54d:T=1775399779:RT=1779817045:S=AA-Afjal_MsklKQwFI3X8c2JlvS9; _pubcid=c5697233-4af4-4ede-a3a1-52fb5bc3afcf; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; _cc_id=675f9ea13e32d6252382baaebd197bea; panoramaId_expiry=1780421847525; panoramaId=6f1af924621ddfa4515c549834be185ca02ca73fd19aa3023161315c8afc9f4a; panoramaIdType=panoDevice; dmp-FE-cookie-ts=1779803316741; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjYtMDUtMjYgNDgzZmQyZDdlMTcxYWVkZDg4OTRiYjk4ZjVjYjRmNzYifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; ra=1; _ga_8CR4051LQE=GS2.1.s1779817043$o4$g1$t1779817096$j7$l0$h0; _ce.s=v~d805005791ae47ccd872e704086038f8b09f5bb9~vir~new~lva~1779817043920~vpv~2~v11ls~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.cs~22588~v11.s~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.vs~d805005791ae47ccd872e704086038f8b09f5bb9~v11.sla~1779817044975~v11.wss~1779817045009~v11.ss~1779817045021~lcw~1779817098656; cebsp_=5; cto_bundle=D7tG4F80aUU5RkZCSFRHbFlPcmZGZm9HaXlsZGRTbGhQcFNGcU85cUt6NVAlMkY4MUZPb3ZVYnQyZkR0VlZXJTJCSGpiR2J4dUZabjJ6NE5yVWVZZU9zMG1kUGdBWW9DWnEzelhuS3dPbmV4VEJ4WU9SJTJGZ01WNmVUcVVnSzk5SUZWczVRdzVaYWRKSTV3aWpLdmViZzNvUlpuNHBGOWclM0QlM0Q; cto_bidid=BEg4gV9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqaWwzMU5yWE9JdDdRZkNTNEFxRUNEUWpLZDVHJTJCM043ZVpUNU1NMmdvZHJvJTNE; OptanonConsent=isGpcEnabled=0&datestamp=Tue+May+26+2026+20%3A38%3A37+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; _k5a=75@{"u":[{"uid":"RQPmrQQ5p8bcKbq3","c":"desktop","ts":1779817127},1779907127]}'
         }
-
 
     with requests.Session() as session:
         # Attempt 1: Without headers
@@ -285,10 +301,6 @@ def get_markdown_from_url_inner(url):
         # Attempt 2: With headers
         logger.info(f"Attempting to fetch and extract from {url} with headers.")
         md_with_headers, response_with_headers = _fetch_and_extract(url, session, headers=headers)
-
-        # Check if themarker cookies expired
-        if "themarker.com" in url and md_with_headers and "טוען..." in md_with_headers:
-            return ""
 
         # Compare the results from with/without headers
         len_no_headers = len(md_no_headers) if md_no_headers else 0
@@ -311,10 +323,8 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
-    md, _ = get_markdown_from_url("https://www.themarker.com/markets/2026-05-25/ty-article/0000019e-5e7b-d9a9-abde-dfff4fbe0000?utm_source=App_Share&utm_medium=iOS_Native")
-    md, _ = get_markdown_from_url("https://www.themarker.com/technation/2026-04-19/ty-article/.premium/0000019d-a45f-df26-a1bf-a5dfb0fe0000?utm_source=App_Share&utm_medium=iOS_Native")
-
-    md, _ = get_markdown_from_url("https://www.themarker.com/technation/2026-04-19/ty-article/.premium/0000019d-a45f-df26-a1bf-a5dfb0fe0000?utm_source=App_Share&utm_medium=iOS_Native")
+    md, _ = get_markdown_from_url("https://www.themarker.com/career/2026-05-27/ty-article-magazine/.highlight/0000019e-68e1-d3a6-addf-efe5a55d0000?utm_source=App_Share&utm_medium=iOS_Native")
+    md, _ = get_markdown_from_url("https://www.themarker.com/technation/2025-12-11/ty-article/.highlight/0000019b-0cd0-d868-affb-5cf9d2a10000?utm_source=App_Share&utm_medium=iOS_Native")
     prompt = f"""The following text is markdown formatted text of a web page. Do the following:
     1. Convert md to regular, plain text
     2. Remove all meta characters
