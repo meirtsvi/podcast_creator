@@ -20,7 +20,7 @@ from podcast_creator.logger import logger
 from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 from podcast_creator.reddit_scraper import extract_content_from_reddit
 
-dotenv.load_dotenv()
+dotenv.load_dotenv(Path(__file__).resolve().parent / ".env")
 
 def url_to_filename(url: str, max_length: int = 200) -> str:
     # Parse URL and construct a base name
@@ -89,6 +89,28 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
     return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
 
 
+def _themarker_cookie() -> str:
+    return os.getenv("THEMARKER_COOKIE") or ""
+
+
+def _themarker_rich_text_count(raw_html: str) -> int:
+    return raw_html.count('data-testid="rich-text"')
+
+
+def _is_complete_themarker_extract(raw_html: str, md: str | None, url: str) -> bool:
+    """Premium articles ship only a teaser (2 rich-text blocks) without a valid cookie."""
+    if not md:
+        return False
+    if ".premium" in url or ".highlight" in url:
+        if _themarker_rich_text_count(raw_html) < 3:
+            return False
+    body_paragraphs = [
+        p for p in md.split("\n\n")
+        if p.strip() and not p.strip().startswith("#")
+    ]
+    return len(body_paragraphs) >= 3
+
+
 def _extract_themarker_markdown(raw_html: str):
     tree = html.fromstring(raw_html)
     title_el = tree.xpath('//*[@data-testid="article-title"] | //h1')
@@ -108,6 +130,27 @@ def _extract_themarker_markdown(raw_html: str):
         parts.append(subtitle)
     parts.extend(paragraphs)
     return "\n\n".join(parts)
+
+
+def _themarker_request_headers() -> dict:
+    return {
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-language': 'en-US,en;q=0.9,he;q=0.8',
+        'cache-control': 'no-cache',
+        'dnt': '1',
+        'pragma': 'no-cache',
+        'priority': 'u=0, i',
+        'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+        'Cookie': _themarker_cookie(),
+    }
 
 
 def playwright_extract_to_markdown(url: str):
@@ -197,8 +240,14 @@ def _fetch_and_extract(url, session, headers=None):
 
         if "themarker.com" in url:
             md_themarker = _extract_themarker_markdown(html_string)
-            if md_themarker and _found_text(md_themarker):
+            if md_themarker and _found_text(md_themarker) and _is_complete_themarker_extract(
+                    html_string, md_themarker, url):
                 return md_themarker, response
+            if md_themarker and not _is_complete_themarker_extract(html_string, md_themarker, url):
+                logger.warning(
+                    f"TheMarker returned paywalled teaser for {url} "
+                    f"({_themarker_rich_text_count(html_string)} rich-text blocks). "
+                    "Refresh THEMARKER_COOKIE in .env.")
 
         # Method 1: trafilatura.extract
         md_extract = _extract_from_trafilatura(html_string)
@@ -229,7 +278,10 @@ def get_markdown_from_url(url):
             cached_md = f.read()
         return cached_md,  SimpleNamespace(status_code=200, url=url, text=cached_md)
     md_content, response = get_markdown_from_url_inner(url)
-    if md_content and cache_folder:
+    if md_content and cache_folder and not (
+            "themarker.com" in url
+            and response
+            and not _is_complete_themarker_extract(response.text, md_content, url)):
         os.makedirs(cache_folder, exist_ok=True)
         with open(cache_path, 'w', encoding='utf-8') as f:
             f.write(md_content)
@@ -274,24 +326,7 @@ def get_markdown_from_url_inner(url):
     }
 
     if "themarker.com" in url:
-        headers = {
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'accept-language': 'en-US,en;q=0.9,he;q=0.8',
-            'cache-control': 'no-cache',
-            'dnt': '1',
-            'pragma': 'no-cache',
-            'priority': 'u=0, i',
-            'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'document',
-            'sec-fetch-mode': 'navigate',
-            'sec-fetch-site': 'none',
-            'sec-fetch-user': '?1',
-            'upgrade-insecure-requests': '1',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-            'Cookie': os.getenv("THEMARKER_COOKIE") or 'anonymousId=17831757416225; _fbp=fb.1.1775399730957.552462482310956727; aat=WFVkZjB5djBNQVlOQzht; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.999789562.1775399766; _gcl_au=1.1.913945240.1775399766; _twpid=tw.1775399766476.15276858734047806; _sharedID=dc7f5129-75d7-458d-b2f1-46b6b19faaac; _sharedID_cst=znv0HA%3D%3D; _cq_duid=1.1775450394.9Od6SA5RJeW3FKpA; _cq_session=1.1775450394996.AqbRNrPIvq48FaSu.1775450394996; ab-test-group=A; vad-loc-code=il; acl=acl; cebs=1; _ce.clock_data=-1038%2C89.139.52.179%2C1%2C90daa551604269dbcdcf237b5cc700f3%2CChrome%2CIL; __gads=ID=e38805cfb21411b7:T=1775399779:RT=1779817045:S=ALNI_MYNtmQCJ6_sVpiBxvmASFs24XbfCw; __gpi=UID=000013bb41326c68:T=1775399779:RT=1779817045:S=ALNI_MZr84Vjq2YnWHuEoZ0eGoQMWdZoZw; __eoi=ID=df1f0089e7c7b54d:T=1775399779:RT=1779817045:S=AA-Afjal_MsklKQwFI3X8c2JlvS9; _pubcid=c5697233-4af4-4ede-a3a1-52fb5bc3afcf; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; _cc_id=675f9ea13e32d6252382baaebd197bea; panoramaId_expiry=1780421847525; panoramaId=6f1af924621ddfa4515c549834be185ca02ca73fd19aa3023161315c8afc9f4a; panoramaIdType=panoDevice; dmp-FE-cookie-ts=1779803316741; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjYtMDUtMjYgNDgzZmQyZDdlMTcxYWVkZDg4OTRiYjk4ZjVjYjRmNzYifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; ra=1; _ga_8CR4051LQE=GS2.1.s1779817043$o4$g1$t1779817096$j7$l0$h0; _ce.s=v~d805005791ae47ccd872e704086038f8b09f5bb9~vir~new~lva~1779817043920~vpv~2~v11ls~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.cs~22588~v11.s~8ecf5680-5929-11f1-9c4a-b1c677a481a7~v11.vs~d805005791ae47ccd872e704086038f8b09f5bb9~v11.sla~1779817044975~v11.wss~1779817045009~v11.ss~1779817045021~lcw~1779817098656; cebsp_=5; cto_bundle=D7tG4F80aUU5RkZCSFRHbFlPcmZGZm9HaXlsZGRTbGhQcFNGcU85cUt6NVAlMkY4MUZPb3ZVYnQyZkR0VlZXJTJCSGpiR2J4dUZabjJ6NE5yVWVZZU9zMG1kUGdBWW9DWnEzelhuS3dPbmV4VEJ4WU9SJTJGZ01WNmVUcVVnSzk5SUZWczVRdzVaYWRKSTV3aWpLdmViZzNvUlpuNHBGOWclM0QlM0Q; cto_bidid=BEg4gV9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqaWwzMU5yWE9JdDdRZkNTNEFxRUNEUWpLZDVHJTJCM043ZVpUNU1NMmdvZHJvJTNE; OptanonConsent=isGpcEnabled=0&datestamp=Tue+May+26+2026+20%3A38%3A37+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; _k5a=75@{"u":[{"uid":"RQPmrQQ5p8bcKbq3","c":"desktop","ts":1779817127},1779907127]}'
-        }
+        headers = _themarker_request_headers()
 
     with requests.Session() as session:
         # Attempt 1: Without headers
@@ -314,6 +349,12 @@ def get_markdown_from_url_inner(url):
             logger.info(f"Extraction without headers yielded the best result for {url}.")
             return md_no_headers, response_no_headers
 
+        if "themarker.com" in url:
+            logger.error(
+                f"TheMarker extraction failed for {url}. "
+                "Set a valid THEMARKER_COOKIE in .env (requests-only, no Playwright).")
+            return None, response_with_headers or response_no_headers
+
         logger.error(f"Two main extraction methods failed for {url}. Trying Playwright as a fallback.")
         md_playwright, response_playwright = playwright_extract_to_markdown(url)
         if md_playwright:
@@ -323,7 +364,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
-    md, _ = get_markdown_from_url("https://www.themarker.com/career/2026-05-27/ty-article-magazine/.highlight/0000019e-68e1-d3a6-addf-efe5a55d0000?utm_source=App_Share&utm_medium=iOS_Native")
+    md, _ = get_markdown_from_url("https://www.themarker.com/markets/2026-05-25/ty-article/.premium/0000019e-5e7b-d9a9-abde-dfff4fbe0000?utm_source=App_Share&utm_medium=iOS_Native")
     md, _ = get_markdown_from_url("https://www.themarker.com/technation/2025-12-11/ty-article/.highlight/0000019b-0cd0-d868-affb-5cf9d2a10000?utm_source=App_Share&utm_medium=iOS_Native")
     prompt = f"""The following text is markdown formatted text of a web page. Do the following:
     1. Convert md to regular, plain text
