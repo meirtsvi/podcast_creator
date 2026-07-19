@@ -89,8 +89,62 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
     return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
 
 
-def _themarker_cookie() -> str:
-    return os.getenv("THEMARKER_COOKIE") or ""
+_THEMARKER_COOKIE_CACHE = Path(__file__).resolve().parent / ".themarker_cookies.txt"
+
+
+def _themarker_login() -> str:
+    """Log in to themarker.com with THEMARKER_USERNAME/THEMARKER_PASSWORD and
+    return a Cookie header string. The session is cached on disk so login only
+    runs when the cached session has expired."""
+    username = os.getenv("THEMARKER_USERNAME")
+    password = os.getenv("THEMARKER_PASSWORD")
+    if not username or not password:
+        logger.error("THEMARKER_USERNAME/THEMARKER_PASSWORD are not set in .env")
+        return ""
+    logger.info(f"Logging in to themarker.com as {username}")
+    cookies = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+        context = browser.new_context()
+        page = context.new_page()
+        try:
+            page.goto("https://login.themarker.com/",
+                      wait_until="networkidle", timeout=60000)
+            page.fill('[data-testid="email-field"]', username)
+            page.click('[data-testid="submit-btn"]')
+            page.wait_for_selector('[data-testid="password-field"]', timeout=30000)
+            page.fill('[data-testid="password-field"]', password)
+            page.click('[data-testid="submit-btn"]')
+            # The post-login redirect never reaches networkidle (ads), so poll
+            # for the sso_token cookie instead.
+            for _ in range(60):
+                page.wait_for_timeout(500)
+                cookies = context.cookies()
+                if any(c["name"] == "sso_token" for c in cookies):
+                    break
+            else:
+                logger.error(
+                    "TheMarker login did not produce an sso_token cookie "
+                    "(wrong credentials?)")
+                return ""
+        except Exception as e:
+            logger.error(f"TheMarker login failed: {e}")
+            return ""
+        finally:
+            browser.close()
+    cookie = "; ".join(f"{c['name']}={c['value']}" for c in cookies
+                       if "themarker.com" in c.get("domain", ""))
+    _THEMARKER_COOKIE_CACHE.write_text(cookie, encoding="utf-8")
+    return cookie
+
+
+def _themarker_cookie(force_login: bool = False) -> str:
+    if not force_login and _THEMARKER_COOKIE_CACHE.exists():
+        cached = _THEMARKER_COOKIE_CACHE.read_text(encoding="utf-8").strip()
+        if cached:
+            return cached
+    return _themarker_login()
 
 
 def _themarker_rich_text_count(raw_html: str) -> int:
@@ -132,7 +186,7 @@ def _extract_themarker_markdown(raw_html: str):
     return "\n\n".join(parts)
 
 
-def _themarker_request_headers() -> dict:
+def _themarker_request_headers(cookie: str) -> dict:
     return {
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
         'accept-language': 'en-US,en;q=0.9,he;q=0.8',
@@ -149,8 +203,47 @@ def _themarker_request_headers() -> dict:
         'sec-fetch-user': '?1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-        'Cookie': _themarker_cookie(),
+        'Cookie': cookie,
     }
+
+
+def _canonical_url(raw_html: str):
+    match = re.search(r'<link rel="canonical" href="([^"]+)"', raw_html)
+    return match.group(1) if match else None
+
+
+def _get_markdown_from_themarker(url):
+    """Fetch a TheMarker article as a logged-in subscriber.
+
+    The full body is only server-rendered at the canonical URL (which carries
+    the .premium/.highlight marker), so after fetching the given URL we follow
+    the canonical link from its HTML. If the result is still a teaser the
+    cached session has expired — log in again and retry once.
+    """
+    md, response = None, None
+    with requests.Session() as session:
+        for force_login in (False, True):
+            cookie = _themarker_cookie(force_login=force_login)
+            if not cookie:
+                break
+            headers = _themarker_request_headers(cookie)
+            md, response = _fetch_and_extract(url, session, headers=headers)
+            checked_url = url
+            canonical = _canonical_url(response.text) if response is not None else None
+            if canonical and canonical.split("?")[0] != url.split("?")[0]:
+                md_canonical, response_canonical = _fetch_and_extract(
+                    canonical, session, headers=headers)
+                if response_canonical is not None:
+                    md, response, checked_url = md_canonical, response_canonical, canonical
+            if md and response is not None and _is_complete_themarker_extract(
+                    response.text, md, checked_url):
+                return md, response
+            if not force_login:
+                logger.warning(
+                    f"TheMarker fetch incomplete for {url}, "
+                    "re-logging in and retrying.")
+    logger.error(f"TheMarker extraction failed for {url}.")
+    return md, response
 
 
 def playwright_extract_to_markdown(url: str):
@@ -246,8 +339,7 @@ def _fetch_and_extract(url, session, headers=None):
             if md_themarker and not _is_complete_themarker_extract(html_string, md_themarker, url):
                 logger.warning(
                     f"TheMarker returned paywalled teaser for {url} "
-                    f"({_themarker_rich_text_count(html_string)} rich-text blocks). "
-                    "Refresh THEMARKER_COOKIE in .env.")
+                    f"({_themarker_rich_text_count(html_string)} rich-text blocks).")
 
         # Method 1: trafilatura.extract
         md_extract = _extract_from_trafilatura(html_string)
@@ -302,6 +394,9 @@ def get_markdown_from_url_inner(url):
         content = extract_content_from_reddit(url)
         return json.dumps(content), SimpleNamespace(status_code=200, url=url, text=content)
 
+    if "themarker.com" in url:
+        return _get_markdown_from_themarker(url)
+
     """
     Tries to get markdown from a URL by fetching with and without headers,
     and using two different extraction methods. Returns the best result.
@@ -322,11 +417,7 @@ def get_markdown_from_url_inner(url):
         'sec-fetch-user': '?1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-        'Cookie': 'anonymousId=17831757416225; _fbp=fb.1.1775399730957.552462482310956727; aat=WFVkZjB5djBNQVlOQzht; productsStatus=BOTHSuscribedPaying_; userProducts=%7B%22products%22%3A%5B%7B%22prodNum%22%3A274%2C%22trial%22%3Afalse%7D%5D%2C%22stopped%22%3A%5B%5D%2C%22tempSince%22%3A%22%22%2C%22temporary%22%3Afalse%7D; _htzwif=none; _ga=GA1.1.999789562.1775399766; _gcl_au=1.1.913945240.1775399766; _twpid=tw.1775399766476.15276858734047806; _sharedID=dc7f5129-75d7-458d-b2f1-46b6b19faaac; _sharedID_cst=znv0HA%3D%3D; _cq_duid=1.1775450394.9Od6SA5RJeW3FKpA; _cq_session=1.1775450394996.AqbRNrPIvq48FaSu.1775450394996; ab-test-group=A; vad-loc-code=il; _ce.clock_data=-1038%2C89.139.52.179%2C1%2C90daa551604269dbcdcf237b5cc700f3%2CChrome%2CIL; _pubcid=c5697233-4af4-4ede-a3a1-52fb5bc3afcf; dmp-FE-cookie-dmpid=9b7203b6-6959-4e86-8b3e-27e62e781df8; _cc_id=675f9ea13e32d6252382baaebd197bea; panoramaId_expiry=1780421847525; panoramaId=6f1af924621ddfa4515c549834be185ca02ca73fd19aa3023161315c8afc9f4a; panoramaIdType=panoDevice; dmp-FE-cookie-ts=1779803316741; sso_token=eyJ1c2VySWQiOiI3NjUwNTQwNjU2IiwidXNlck1haWwiOiJ0dXRnaW5uYUBnbWFpbC5jb20iLCJ0aWNrZXRJZCI6IjM3MzczNTM3MzIzMDM0MzczNzMxMzczNTMzMzYzNDM3MzkzNzMwMzAiLCJmaXJzdE5hbWUiOiLXlNeS16giLCJsYXN0TmFtZSI6Item15HXmSIsImVtYWlsVmFsaWRpdHkiOiJ2YWxpZCIsInAiOiJkZGYxYzQwODM2ZDJiZjNmYzQ0N2JjOWNiZTNiOGY2ZCIsInVzZXJUeXBlIjoicGF5aW5nIiwiZCI6IjIwMjYtMDUtMjYgNDgzZmQyZDdlMTcxYWVkZDg4OTRiYjk4ZjVjYjRmNzYifQ==; user_details=eyJ1c2VyTWFpbCI6InR1dGdpbm5hQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IteU15LXqCIsImxhc3ROYW1lIjoi16bXkdeZIiwiZW1haWxWYWxpZGl0eSI6InZhbGlkIiwidXNlclR5cGUiOiJwYXlpbmciLCJwcm9kdWN0cyI6W3sicHJvZE51bSI6Mjc0LCJzdGF0dXMiOiJTVUJTQ1JJQkVEIiwiaXNUcmlhbCI6ZmFsc2UsImRlYnRBY3RpdmUiOmZhbHNlLCJzdGFydERhdGUiOjE1NjUzODQ0MDAsImNhcmRFeHBpcmF0aW9uIjpmYWxzZSwiY29ubmVjdGlvblR5cGUiOjcyMH1dLCJ1bml2ZXJzaXR5IjpmYWxzZSwiZXh0ZW5kZWRVc2VyVHlwZSI6IlBheWluZyIsInRlcm1zQ2hlY2siOnRydWV9; ra=2; acl=acl; cebs=1; cebsp_=1; _ce.s=v~d805005791ae47ccd872e704086038f8b09f5bb9~vir~returning~lva~1779827544978~vpv~3~v11ls~01681cf0-5942-11f1-8fe8-4355f0395bd9~v11.cs~22588~v11.s~01681cf0-5942-11f1-8fe8-4355f0395bd9~v11.vs~d805005791ae47ccd872e704086038f8b09f5bb9~v11.sla~1779827545234~v11.wss~1779827545236~v11.ss~1779827545238~lcw~1779827545240; cto_bidid=mKsWgl9uJTJGJTJCcWRkYzJ3SmNoOUlYNlR4V1lmQTBiU1ZlaFRTc0hEVnZmMWk3U09aJTJGbXR3OEludGl0NFRIVmFxekdvMTVqaWwzMU5yWE9JdDdRZkNTNEFxRUNEUUhJZFBGd3BncmFLWGtPbXkyWVNLRSUzRA; __gads=ID=e38805cfb21411b7:T=1775399779:RT=1779827544:S=ALNI_MYNtmQCJ6_sVpiBxvmASFs24XbfCw; __gpi=UID=000013bb41326c68:T=1775399779:RT=1779827544:S=ALNI_MZr84Vjq2YnWHuEoZ0eGoQMWdZoZw; __eoi=ID=df1f0089e7c7b54d:T=1775399779:RT=1779827544:S=AA-Afjal_MsklKQwFI3X8c2JlvS9; OptanonConsent=isGpcEnabled=0&datestamp=Tue+May+26+2026+23%3A32%3A27+GMT%2B0300+(Israel+Daylight+Time)&version=202308.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&AwaitingReconsent=false; cto_bundle=Njb9T180aUU5RkZCSFRHbFlPcmZGZm9HaXl1akwyRyUyQjJoSEhzZlJLaENMMWtMV0VuVXhUWkowUmIwVWJLRWZHSW9sVEVTeDBtT05meUV0V1lKMnpFOFElMkY0SVEyVEZQcWpjbGJ2SCUyRmpPdUNlZCUyQnJPaXpqVDJmR0VhQVFIUlR0ckdMQUI0Y3U1Sllwa0l2UHQ0T2o2QUZ2emFnZyUzRCUzRA; _k5a=75@{"u":[{"uid":"RQPmrQQ5p8bcKbq3","c":"desktop","ts":1779827564},1779917564]}; _ga_8CR4051LQE=GS2.1.s1779827544$o5$g1$t1779827777$j58$l0$h0'
     }
-
-    if "themarker.com" in url:
-        headers = _themarker_request_headers()
 
     with requests.Session() as session:
         # Attempt 1: Without headers
@@ -348,12 +439,6 @@ def get_markdown_from_url_inner(url):
         if len_no_headers > 0:
             logger.info(f"Extraction without headers yielded the best result for {url}.")
             return md_no_headers, response_no_headers
-
-        if "themarker.com" in url:
-            logger.error(
-                f"TheMarker extraction failed for {url}. "
-                "Set a valid THEMARKER_COOKIE in .env (requests-only, no Playwright).")
-            return None, response_with_headers or response_no_headers
 
         logger.error(f"Two main extraction methods failed for {url}. Trying Playwright as a fallback.")
         md_playwright, response_playwright = playwright_extract_to_markdown(url)
