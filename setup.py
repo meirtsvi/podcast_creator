@@ -6,6 +6,7 @@ setup(
     description="Personal podcast generation tools",
     author="Meir Tsvi",
     author_email="meir.tsvi@live.com",
+    license="MIT",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.11.0",

@@ -129,4 +129,4 @@ finished script, for words the TTS voice gets wrong.
 
 ## License
 
-No license has been chosen yet, so all rights are reserved. Ask before reusing.
+[MIT](LICENSE) © 2026 Meir Tsvi
