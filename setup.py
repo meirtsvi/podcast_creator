@@ -9,5 +9,6 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.11.0",
-    data_files=[('', ['*.txt', '*.csv' ])],
+    package_data={"podcast_creator": ["*.j2", "*.csv", "*.mp3"]},
+    include_package_data=True,
 )

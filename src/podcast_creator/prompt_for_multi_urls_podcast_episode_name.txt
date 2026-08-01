@@ -1,5 +1,0 @@
-Create a name for a podcast episode from the following titles.
-Take the topic from each title and try to give an enticing name that specifically summarizes three of the titles, and covers the rest in the remainder of the line.
-Summarize in a single line. **Do not** give a name that starts with: “Here is a suggested episode name”; give only the name.
-The result should be less than 100 characters.
-

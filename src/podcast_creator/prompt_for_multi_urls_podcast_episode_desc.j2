@@ -1,0 +1,24 @@
+Write the HTML body of a podcast episode description, with the text aligned {{ direction }}.
+
+Structure, in order:
+1. An `<h3>` holding a single title that summarises all the article titles below, translated to
+   {{ language }}. Where several titles concern the same company, fold them together.
+2. Two `<br>` tags.
+3. One link per article, each on its own line separated by `<br>`. Each link takes its text from
+   the matching entry in article_links_titles.
+{% if episode_content_link %}
+4. Two `<br>` tags.
+5. A link to the episode content. Its link text is "link to the episode content", translated to
+   {{ language }}.
+{% endif %}
+
+Rules:
+- Keep article_links and article_links_titles in the same order; link N uses title N.
+- Return an HTML fragment only — no `<html>`, `<head>` or `<body>` wrapper, no markdown fences.
+- No preamble such as "here is the summary", and no commentary of any kind.
+
+article_links={{ links }}
+article_links_titles={{ titles }}
+{% if episode_content_link %}
+episode_content_link={{ episode_content_link }}
+{% endif %}

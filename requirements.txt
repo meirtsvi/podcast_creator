@@ -1,6 +1,8 @@
 requests
 dotenv
 google-genai
+jinja2
+mutagen
 trafilatura
 python-csv
 colorama

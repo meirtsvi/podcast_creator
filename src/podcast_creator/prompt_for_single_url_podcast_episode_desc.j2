@@ -1,0 +1,21 @@
+Write the HTML body of a podcast episode description, with the text aligned {{ direction }}.
+
+Structure, in order:
+1. An `<h3>` holding the article title, translated to {{ language }}.
+2. Two `<br>` tags.
+3. A link to the article. Its link text is "link to the source", translated to {{ language }}.
+{% if episode_content_link %}
+4. Two `<br>` tags.
+5. A link to the episode content. Its link text is "link to the episode content", translated to
+   {{ language }}.
+{% endif %}
+
+Rules:
+- Return an HTML fragment only — no `<html>`, `<head>` or `<body>` wrapper, no markdown fences.
+- No preamble such as "here is the summary", and no commentary of any kind.
+
+article_title={{ title }}
+article_link={{ link }}
+{% if episode_content_link %}
+episode_content_link={{ episode_content_link }}
+{% endif %}

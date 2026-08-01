@@ -1,7 +1,12 @@
 from podcast_creator.logger import logger
 from pydub import AudioSegment, silence
-from mutagen.id3 import ID3, COMM, ID3NoHeaderError
+from mutagen.id3 import ID3, COMM, CHAP, CTOC, CTOCFlags, TIT2, ID3NoHeaderError
 from mutagen.mp3 import MP3
+
+# add_pre_and_post_audio() puts 3s of intro music before the speech starts and appends a 4s
+# outro after it. Chapter timings are offset by these, so they are named rather than repeated.
+INTRO_LEAD_MS = 3000
+OUTRO_TAIL_MS = 4000
 
 
 def convert_wav_to_mp3(audio_file_path):
@@ -16,7 +21,7 @@ def add_pre_and_post_audio(podcast_mp3_path):
     post = AudioSegment.from_file(podcast_mp3_path)
 
     # First 3s of pre
-    pre_intro = pre[:3000]
+    pre_intro = pre[:INTRO_LEAD_MS]
 
     # Pre fade-out from 3s to 11s
     pre_fade = pre[3000:11000].fade_out(8000)
@@ -31,7 +36,7 @@ def add_pre_and_post_audio(podcast_mp3_path):
     post_tail = post[8000:]
 
     # Outro: First 4s of pre, with fade-out
-    pre_outro = pre[:4000].fade_out(4000)
+    pre_outro = pre[:OUTRO_TAIL_MS].fade_out(OUTRO_TAIL_MS)
 
     # Final composition
     final_audio = pre_intro + overlap + post_tail + pre_outro
@@ -78,6 +83,59 @@ def add_comment_to_mp3(mp3_path, comment_text):
     # If we used the ID3() constructor initially, calling save() works directly
     audio.save()
     logger.info(f"Added comment to {mp3_path}")
+
+def _load_id3(mp3_path):
+    """Return a writable ID3 tag object for `mp3_path`, creating one if absent."""
+    try:
+        return ID3(mp3_path)
+    except ID3NoHeaderError:
+        audio = MP3(mp3_path)
+        audio.add_tags()
+        return audio.tags
+
+
+def get_audio_duration_ms(audio_file_path) -> int:
+    """Length of an audio file in milliseconds."""
+    return len(AudioSegment.from_file(audio_file_path))
+
+
+def add_chapters_to_mp3(mp3_path, chapters):
+    """Write ID3 chapter frames (CHAP plus a CTOC index) into the MP3.
+
+    `chapters` is a list of (title, start_ms, end_ms) tuples. Saved as ID3v2.4 so that the
+    UTF-8 titles survive - ID3v2.3 cannot hold UTF-8 text frames.
+    """
+    if not chapters:
+        logger.warning(f"No chapters to write to {mp3_path}")
+        return
+
+    tags = _load_id3(mp3_path)
+
+    # Drop any chapters from a previous run so re-processing does not accumulate them.
+    tags.delall("CHAP")
+    tags.delall("CTOC")
+
+    element_ids = []
+    for index, (title, start_ms, end_ms) in enumerate(chapters):
+        element_id = f"chp{index}"
+        element_ids.append(element_id)
+        tags.add(CHAP(
+            element_id=element_id,
+            start_time=int(start_ms),
+            end_time=int(end_ms),
+            sub_frames=[TIT2(encoding=3, text=[title])],
+        ))
+
+    tags.add(CTOC(
+        element_id="toc",
+        flags=CTOCFlags.TOP_LEVEL | CTOCFlags.ORDERED,
+        child_element_ids=element_ids,
+        sub_frames=[TIT2(encoding=3, text=["Chapters"])],
+    ))
+
+    tags.save(mp3_path, v2_version=4)
+    logger.info(f"Added {len(chapters)} chapters to {mp3_path}")
+
 
 if __name__ == '__main__':
     add_pre_and_post_audio(r"c:\Users\meir\Dropbox\tech_podcast_hebrew\Episode_96\Episode_96.mp3")

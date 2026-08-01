@@ -11,11 +11,39 @@ from google.genai import types
 from podcast_creator.logger import logger
 from podcast_creator.config import Configuration
 
-from podcast_creator.common import process_conditional_text
+from podcast_creator.templates import render_template
 
 dotenv.load_dotenv()
 
 WORDS_PER_MINUTE = int(os.getenv('WORDS_PER_MINUTE'))
+
+# Hard ceiling on max_output_tokens for gemini-2.5 / 3.x. Values above this are silently
+# clamped by the API, so escalating past it just burns retries without adding room.
+MAX_OUTPUT_TOKENS_CAP = 65536
+
+# Thinking tokens count against max_output_tokens, so the budget must cover the model's
+# reasoning as well as the script. Measured peak on real episodes was ~14.5k thinking tokens.
+THINKING_HEADROOM_TOKENS = 20000
+
+# Without an explicit schema the model finishes the script but regularly botches the closing
+# JSON delimiters, which costs a full retry. Declaring the schema makes the structure reliable.
+PODCAST_SCRIPT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "script_lines": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "speaker": {"type": "STRING"},
+                    "line": {"type": "STRING"},
+                },
+                "required": ["speaker", "line"],
+            },
+        }
+    },
+    "required": ["script_lines"],
+}
 
 def add_diactritics(podcast_text):
     """Add Hebrew diacritics (nikud) using the Nakdan API."""
@@ -139,28 +167,6 @@ def count_words(content: list) -> int:
 def generate_podcast_text(configuration: Configuration):
     logger.info(f"Generating podcast text for episode {configuration.episode_number} with title '{configuration.episode_title}'")
 
-    if len(configuration.hosts) > 1:
-        conditions = { 'TWO_HOSTS': True, 'SINGLE_HOST': False }
-    else:
-        conditions = { 'TWO_HOSTS': False, 'SINGLE_HOST': True}
-    if configuration.episode_number != -1:
-        conditions = { **conditions, 'EPISODE_IN_SERIES': True, 'NOT_EPISODE_IN_SERIES': False }
-    else:
-        conditions = { **conditions, 'EPISODE_IN_SERIES': False, 'NOT_EPISODE_IN_SERIES': True }
-    prompt_for_podcast_generation = process_conditional_text(configuration.prompt_for_podcast_generation, conditions)
-    prompt = prompt_for_podcast_generation + "\n"
-    prompt = prompt.replace("{man_speaker}", configuration.man_speaker_name).replace("{woman_speaker}", configuration.woman_speaker_name)
-    prompt = prompt.replace("{speaker}", configuration.man_speaker_name if configuration.hosts[0].lower() == "male" else configuration.woman_speaker_name)
-    prompt = prompt.replace("{host1}", configuration.hosts[0]).replace("{host2}", configuration.hosts[1] if len(configuration.hosts) > 1 else configuration.hosts[0])
-    if len(configuration.hosts) > 1:
-        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_two_hosts)
-    else:
-        prompt = prompt.replace("{podcast_tone}", configuration.podcast_tone_single_host)
-    prompt = prompt.replace("{podcast_name}", configuration.podcast_name)
-    prompt = prompt.replace("{episode_number}", str(configuration.episode_number))
-    prompt = prompt.replace("[PASTE YOUR LONG TEXT HERE]", str(configuration.episode_contents))
-    prompt = prompt.replace("{language}", configuration.output_language)
-
     logger.info(f"episode_length: {configuration.episode_length}")
     target_word_count = count_words(configuration.episode_contents)
     if configuration.episode_length != -1:
@@ -173,11 +179,33 @@ def generate_podcast_text(configuration: Configuration):
     min_n_words = int(target_word_count * 0.85)
     max_n_words = int(target_word_count * 1.15)
 
-    # Calculate required tokens with generous buffer
-    # Hebrew words might use more tokens
-    estimated_tokens = int(max_n_words * 2.5)  if configuration.output_language=="hebrew" else int(max_n_words * 1.5) # Very generous for Hebrew
-    prompt = prompt.replace("{min_n_words}", str(min_n_words))
-    prompt = prompt.replace("{max_n_words}", str(max_n_words))
+    # Calculate the required output-token budget. Measured on real Hebrew episodes, the
+    # script itself costs 2.8-3.4 tokens per word including the JSON scaffolding; the
+    # thinking headroom is added on top because both share the same budget.
+    tokens_per_word = 3.5 if configuration.output_language == "hebrew" else 2.0
+    estimated_tokens = min(int(max_n_words * tokens_per_word) + THINKING_HEADROOM_TOKENS,
+                           MAX_OUTPUT_TOKENS_CAP)
+
+    two_hosts = len(configuration.hosts) > 1
+    source_material = "\n".join(line for line in configuration.episode_contents if line)
+    prompt = render_template(
+        configuration.template_for_podcast_generation,
+        language=configuration.output_language,
+        two_hosts=two_hosts,
+        episode_in_series=configuration.episode_number != -1,
+        man_speaker=configuration.man_speaker_name,
+        woman_speaker=configuration.woman_speaker_name,
+        speaker=configuration.man_speaker_name if configuration.hosts[0].lower() == "male"
+                else configuration.woman_speaker_name,
+        host1=configuration.hosts[0],
+        host2=configuration.hosts[1] if two_hosts else configuration.hosts[0],
+        podcast_name=configuration.podcast_name,
+        episode_number=configuration.episode_number,
+        min_n_words=min_n_words,
+        target_n_words=target_word_count,
+        max_n_words=max_n_words,
+        source_material=source_material,
+    )
 
     with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
         f.write(prompt)
@@ -188,12 +216,12 @@ def generate_podcast_text(configuration: Configuration):
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
 
+    # The source material is already rendered into the template, so it is NOT appended
+    # again as extra parts - doing that used to send the whole article twice.
     parts = [types.Part.from_text(text=prompt)]
-    for content in configuration.episode_contents:
-        if content:
-            parts.append(types.Part.from_text(text=content))
 
-    # Use Pro model for better instruction following
+    # Benchmarked against a real episode prompt: this was the only model that cleared the
+    # word-count minimum on every run, and it produced the shortest lines (most turn-taking).
     model = "gemini-3.1-pro-preview"
 
     contents = [
@@ -205,6 +233,7 @@ def generate_podcast_text(configuration: Configuration):
 
     generate_content_config = types.GenerateContentConfig(
         response_mime_type="application/json",
+        response_schema=PODCAST_SCRIPT_SCHEMA,
         temperature=0.8,  # Higher temperature for more elaboration
         max_output_tokens=estimated_tokens,
     )
@@ -220,6 +249,7 @@ def generate_podcast_text(configuration: Configuration):
         generate_content_config=generate_content_config,
         configuration=configuration,
         min_words=min_n_words,
+        max_words=max_n_words,
         max_retries=10,
     )
 
@@ -255,10 +285,11 @@ def generate_podcast_text(configuration: Configuration):
     return podcast_text
 
 def generate_podcast_text_with_retry(client, model, contents, generate_content_config, configuration: Configuration,
-                                     min_words, max_retries=3):
+                                     min_words, max_words, max_retries=3):
     """Generate podcast text with truncation detection and retry logic."""
 
     best_match = ""
+    best_distance = float("inf")
     for attempt in range(max_retries):
         num_chunks = 0
         podcast_text = ""
@@ -298,8 +329,14 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
 
         # Check for truncation
         if finish_reason == "MAX_TOKENS" or str(finish_reason) == "FinishReason.MAX_TOKENS":
-            logger.warning(f"Output was truncated (MAX_TOKENS reached). Retrying with higher limit...")
-            generate_content_config.max_output_tokens = int(generate_content_config.max_output_tokens * 1.5)
+            if generate_content_config.max_output_tokens >= MAX_OUTPUT_TOKENS_CAP:
+                logger.error(f"Output truncated at the {MAX_OUTPUT_TOKENS_CAP} token model cap. "
+                             f"Raising the limit further has no effect - shorten the episode instead.")
+                continue
+            generate_content_config.max_output_tokens = min(
+                int(generate_content_config.max_output_tokens * 1.5), MAX_OUTPUT_TOKENS_CAP)
+            logger.warning(f"Output was truncated (MAX_TOKENS reached). "
+                           f"Retrying with max_output_tokens={generate_content_config.max_output_tokens}...")
             continue
 
         try:
@@ -319,7 +356,15 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
                 raise TypeError(f"Unexpected JSON root type: {type(json_text).__name__}")
 
             for item in main_list:
-                podcast_text += item["speaker"] + ": " + item["line"] + "\n"
+                # Collapse any internal whitespace so one script line is always exactly one
+                # text line. A newline inside "speaker" or "line" would otherwise produce a
+                # line that does not start with "<speaker>: ", which the TTS step relies on.
+                speaker = " ".join(item["speaker"].split())
+                line = " ".join(item["line"].split())
+                if not line:
+                    logger.warning(f"Skipping empty line for speaker {speaker!r}")
+                    continue
+                podcast_text += speaker + ": " + line + "\n"
         except Exception as e:
             logger.error(f"Error parsing JSON content: {e} on item {item if 'item' in locals() else 'N/A'}")
             logger.error(f"Error parsing JSON content: {original_podcast_text}")
@@ -336,25 +381,34 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
             continue
 
-        if len(podcast_text) > len(best_match):
+        # Score the attempt by how far it falls outside the target range. Overshooting is
+        # a miss in exactly the way undershooting is, so the closest attempt wins rather
+        # than the longest one.
+        if word_count < min_words:
+            distance = min_words - word_count
+        elif word_count > max_words:
+            distance = word_count - max_words
+        else:
+            distance = 0
+
+        if distance < best_distance:
+            best_distance = distance
             best_match = podcast_text
 
-        # Check if we're reasonably close to target word count
-        if word_count < min_words * 0.85:  # Relaxed to 85%
-            logger.warning(f"Word count too low ({word_count} < {min_words * 0.85}). Retrying...")
-            continue
+        if distance == 0:
+            logger.info(f"Successfully generated {word_count} words (target {min_words}-{max_words})")
+            return podcast_text
 
-        # Success!
-        logger.info(f"Successfully generated {word_count} words")
-        return podcast_text
+        if word_count < min_words:
+            logger.warning(f"Word count too low ({word_count} < {min_words}). Retrying...")
+        else:
+            logger.warning(f"Word count too high ({word_count} > {max_words}). Retrying...")
 
-        # If none of the attempts managed to produce full text, take the last attempt - not great but at least we will have episode to make
-        if best_match=="":
-            best_match = podcast_text
-
-    # If we exhausted retries, return best attempt
+    # If we exhausted retries, return the attempt that came closest to the range.
     best_match_word_count = len(best_match.split())
-    logger.warning(f"Exhausted {max_retries} retries. Returning best attempt with {best_match_word_count} words")
+    logger.warning(f"Exhausted {max_retries} retries. Returning closest attempt with "
+                   f"{best_match_word_count} words ({best_distance} words outside "
+                   f"the {min_words}-{max_words} range)")
     return best_match
 
 def verify_text_completeness(text):

@@ -1,3 +1,0 @@
-Create a name for a podcast episode and add the title you received.
-Summarize title in a single line. Do not give an introduction such as "Here is a suggestion..."; give only the name.
-The result should be less than 50 characters.

@@ -14,6 +14,7 @@ from pypdf import PdfReader
 from podcast_creator.config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
 from podcast_creator.url_to_md import get_markdown_from_url
 from podcast_creator.logger import logger
+from podcast_creator.templates import render_template
 from podcast_creator.youtube_content_extractor import extract_content_from_youtube
 
 def call_genai_api(prompt, fast_mode=False):
@@ -48,45 +49,24 @@ def translate_text(text, target_language, fast_mode=False):
     translated_text = call_genai_api(prompt, fast_mode)
     return translated_text
 
-def process_conditional_text(content, conditions):
-    for condition_name, include in conditions.items():
-        pattern = f'<!--CONDITIONAL:{condition_name}-->(.*?)<!--END:{condition_name}-->'
-
-        if include:
-            # Keep the content but remove the markers
-            content = re.sub(pattern, r'\1', content, flags=re.DOTALL)
-        else:
-            # Remove the entire conditional block
-            content = re.sub(pattern, '', content, flags=re.DOTALL)
-
-    # Clean up any remaining empty lines
-    content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
-    return content
-
 def create_episode_title(configuration: Configuration, titles: [], episode_number: int):
-    prompt = configuration.prompt_for_episode_title_generation
-    prompt += "\n".join(titles)
+    prompt = render_template(configuration.template_for_episode_title, titles=titles)
     title = "פרק " + str(episode_number) + " - " + call_genai_api(prompt)
     final_title = translate_text(title, configuration.output_language)
     return final_title
 
 def create_episode_description(configuration: Configuration, urls: [], titles: [], episode_content_link=None):
-    prompt = configuration.prompt_for_episode_description_generation + "."
-    prompt = prompt.replace("{language}", configuration.output_language)
-    prompt = prompt.replace("{direction}", configuration.text_direction)
+    context = {
+        "language": configuration.output_language,
+        "direction": configuration.text_direction,
+        "episode_content_link": episode_content_link,
+    }
     if len(urls) == 1:
-        prompt = prompt.replace("{title}", titles[0])
-        prompt = prompt.replace("{link}", urls[0])
+        context.update(title=titles[0], link=urls[0])
     else:
-        prompt = prompt.replace("{titles}", ', '.join(titles))
-        prompt = prompt.replace("{links}", ', '.join(urls))
+        context.update(titles=', '.join(titles), links=', '.join(urls))
 
-    if episode_content_link:
-        conditions = {'EPISODE_LINK': True}
-        prompt = prompt.replace("{episode_content_link}", episode_content_link)
-    else:
-        conditions = {'EPISODE_LINK': False}
-    prompt = process_conditional_text(prompt, conditions)
+    prompt = render_template(configuration.template_for_episode_description, **context)
     desc = call_genai_api(prompt)
     final_desc = desc.replace("```html", "").replace("```", "").replace("\n", "")
     return final_desc

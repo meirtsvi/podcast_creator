@@ -16,6 +16,7 @@ from podcast_creator.common import (
 from podcast_creator.config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME, \
     SINGLE_URL_LINKS_FILEPATH, MULTI_URL_LINKS_FILEPATH
 from podcast_creator.audio import add_pre_and_post_audio
+from podcast_creator.chapters import add_chapters_to_episode
 from podcast_creator.gen_podcast_text import generate_podcast_text
 from podcast_creator.gen_podcast_episode_from_text import generate_podcast_episode_audio_from_text
 from podcast_creator.transistor import upload_new_podcast_episode
@@ -53,6 +54,7 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     logger.info(f"Extracted speaker names: {speaker_names}")
     generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_audio_file_path, speaker_names)
     add_pre_and_post_audio(episode_audio_file_path)
+    add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
     upload_new_podcast_episode(configuration)
 
     logger.info(f"Completed processing batch {batch_number}")
@@ -176,6 +178,7 @@ def produce_audio_for_missing_audio_episodes(configuration):
                                                       episode_audio_file_path,
                                                       [configuration.man_speaker_name, configuration.woman_speaker_name])
             add_pre_and_post_audio(episode_audio_file_path)
+            add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
             upload_new_podcast_episode(configuration)
         except Exception as e:
             logger.error(f"Error processing episode {episode_number}: {e}")
@@ -230,7 +233,7 @@ def cleanup_existing_links(langs):
 
 def process_languages(langs):
     if not langs:
-        langs = "hebrew,english,russian"
+        langs = os.getenv("PODCAST_LANGUAGES", "hebrew,english,russian")
         cleanup_existing_links(langs)
     for lang in langs.split(","):
         logger.info(f"Processing language: {lang}")
