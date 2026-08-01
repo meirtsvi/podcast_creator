@@ -1,4 +1,4 @@
-# podcast_creator
+# Podcast Creator
 
 Turns a list of article URLs into a finished, published podcast episode: it fetches the
 articles, writes a two-host conversational script with Gemini, speaks it with Gemini TTS,
