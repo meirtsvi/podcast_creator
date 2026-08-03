@@ -461,13 +461,9 @@ def generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_
         merge_wav_files(generated_files, episode_file_path)
         logger.info("Merged all files into final_output.wav")
 
-        # Clean up individual files
-        for file in generated_files:
-            try:
-                os.remove(file)
-                logger.info(f"Removed temporary file: {file}")
-            except Exception as e:
-                logger.error(f"Error removing file {file}: {e}")
+        # The per-chunk files are kept so a bad chunk can be traced back to the API call that
+        # produced it - the merged episode alone cannot tell you which chunk went wrong.
+        logger.info(f"Kept {len(generated_files)} per-chunk WAV files in {episode_dir} for debugging")
 
 def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
     """Convert inline audio bytes into a proper WAV file buffer."""
