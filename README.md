@@ -20,7 +20,7 @@ urls.txt
    ├─ gen_podcast_episode_from_text.py  speak it with Gemini multi-speaker TTS
    ├─ audio.py .................... add intro/outro music, write ID3 tags
    ├─ chapters.py ................. derive chapters, write ID3 CHAP/CTOC frames
-   └─ transistor.py ............... upload the episode as a draft
+   └─ transistor.py ............... upload the episode and schedule it to publish
 ```
 
 Two kinds of episode are produced:
