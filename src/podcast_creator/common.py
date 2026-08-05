@@ -72,6 +72,47 @@ def create_episode_description(configuration: Configuration, urls: [], titles: [
     return final_desc
 
 
+# Marks where the chapter list starts, so re-running an episode replaces the previous block
+# instead of appending a second one. Renders as nothing.
+CHAPTERS_MARKER = "<!--chapters-->"
+
+
+def format_timestamp(ms: int) -> str:
+    seconds = max(int(ms), 0) // 1000
+    return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+
+
+def add_chapter_timestamps_to_description(configuration: Configuration, timings: list) -> str:
+    """Append a `(HH:MM:SS) - Title` line per chapter to the episode description.
+
+    The description is written before the audio exists, so the timings are only known here.
+    This is the delivery route that does not depend on the host forwarding the MP3's ID3
+    chapter frames: Apple, Spotify and YouTube all read timestamps straight out of the
+    description. Each line ends with both a `<br>` and a real newline because the description
+    travels as HTML but is parsed for chapters as text.
+
+    Also rewrites episode_desc.txt, which create_episode_folder() wrote without the chapters.
+    """
+    if not timings:
+        return configuration.episode_description
+
+    body = (configuration.episode_description or "").split(CHAPTERS_MARKER)[0]
+    lines = "".join(f"({format_timestamp(start_ms)}) - {title}<br>\n"
+                    for title, start_ms, _, _ in timings)
+    configuration.episode_description = f"{body}{CHAPTERS_MARKER}<br>\n{lines}"
+
+    try:
+        desc_file = p(configuration.episode_folder) / EPISODE_DESC_FILENAME
+        with open(desc_file, 'w', encoding="utf-8") as f:
+            f.write(configuration.episode_description)
+    except Exception as e:
+        # Bookkeeping only - never let this block the upload.
+        logger.error(f"Failed to rewrite {EPISODE_DESC_FILENAME} with chapter timestamps: {e}")
+
+    logger.info(f"Added {len(timings)} chapter timestamps to the episode description")
+    return configuration.episode_description
+
+
 def create_source_list(source_type, batch_size=10) -> list:
     root_directory = p(__file__).parent
     file_name = root_directory / "sources" / f"{source_type}_links.csv"

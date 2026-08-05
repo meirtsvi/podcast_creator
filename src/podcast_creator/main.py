@@ -11,6 +11,7 @@ from podcast_creator.common import (
     create_episode_title, create_episode_description,
     create_episode_folder, get_processed_urls, get_next_episode_number,
     generate_title_from_url, get_episodes_with_missing_audio,
+    add_chapter_timestamps_to_description,
 )
 
 from podcast_creator.config import Configuration, EPISODE_URLS_FILENAME, EPISODE_DESC_FILENAME, EPISODE_TEXT, EPISODE_TITLE_FILENAME, \
@@ -54,7 +55,8 @@ def process_batch(configuration: Configuration, batch_number: int, episode_numbe
     logger.info(f"Extracted speaker names: {speaker_names}")
     generate_podcast_episode_audio_from_text(episode_dir, podcast_text, episode_audio_file_path, speaker_names)
     add_pre_and_post_audio(episode_audio_file_path)
-    add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
+    timings = add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
+    add_chapter_timestamps_to_description(configuration, timings)
     upload_new_podcast_episode(configuration)
 
     logger.info(f"Completed processing batch {batch_number}")
@@ -172,13 +174,20 @@ def produce_audio_for_missing_audio_episodes(configuration):
             episode_desc = read_file_content(episode_folder /  EPISODE_DESC_FILENAME)
             podcast_text = read_file_content(episode_folder / EPISODE_TEXT)
             configuration.set_episode_details(episode_number, episode_title, episode_desc)
+            # The article titles and URLs on the configuration still belong to whichever batch
+            # this process last handled - they are never persisted per episode - so clearing
+            # them keeps this episode's chapters from being named after another episode's
+            # articles. Chapter generation falls back to splitting the script by topic.
+            configuration.set_episode_urls([])
+            configuration.set_episode_titles([])
             episode_audio_file_path = configuration.episode_folder / configuration.episode_audio_filename
             generate_podcast_episode_audio_from_text(configuration.episode_folder,
                                                       podcast_text,
                                                       episode_audio_file_path,
                                                       [configuration.man_speaker_name, configuration.woman_speaker_name])
             add_pre_and_post_audio(episode_audio_file_path)
-            add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
+            timings = add_chapters_to_episode(episode_audio_file_path, podcast_text, configuration)
+            add_chapter_timestamps_to_description(configuration, timings)
             upload_new_podcast_episode(configuration)
         except Exception as e:
             logger.error(f"Error processing episode {episode_number}: {e}")
