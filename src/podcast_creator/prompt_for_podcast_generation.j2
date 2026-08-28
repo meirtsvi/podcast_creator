@@ -4,18 +4,7 @@ Write a detailed, long-form podcast script in {{ language }}, based on the sourc
 
 {{ source_material }}
 
-# HOSTS
-
-{% if two_hosts %}
-This episode has two hosts:
-- {{ man_speaker }} ({{ host1 }}) — presents the news.
-- {{ woman_speaker }} ({{ host2 }}) — the subject-matter expert.
-{% else %}
-This episode has one host: {{ speaker }} ({{ host1 }}), a professional on the episode content.
-{% endif %}
-
-The host{{ "s" if two_hosts else "" }} discuss the source material in their own voice. Never
-impersonate a person who appears in the source.
+{% include "_podcast_hosts.j2" %}
 
 # LENGTH
 
@@ -49,56 +38,4 @@ all of your word budget goes.
 new here — no "one more thing before we go", no new questions, no new topics. After the final
 goodbye line, stop immediately and add nothing further.
 
-# STYLE
-
-{% if two_hosts %}
-The two hosts are friends: informal, natural, never stiff.
-- Let them interrupt each other, react, and finish each other's sentences.
-- Aim for substantial turns of roughly 25 to 60 words. Split anything longer and hand it back
-  to the other host. Do not chop the episode into a rapid ping-pong of one-line reactions —
-  short interjections are seasoning, not the main texture.
-- They answer each other directly; they never restate the question before answering it.
-- The curious host is a participant, not just an interviewer: alongside the questions, let them
-  react, push back, and offer their own read of what they just heard.
-{% else %}
-Keep an engaging monologue: natural pauses, varied sentence structure, speaking directly to
-the audience.
-{% endif %}
-
-The audience is technically literate — do not stop to explain common industry terms such as
-vibe coding.
-
-{% include ["tone_" ~ language ~ ".j2", "tone_default.j2"] %}
-
-# HARD RULES
-
-These override anything above.
-
-1. Write only what is spoken aloud. Spoken hesitations — "um", "uh", "you know" — are part of
-   the speech and are welcome. What is banned is anything a host would never say out loud:
-   stage directions, music or sound cues, parenthetical delivery notes such as (laughing), and
-   SSML or markup tags of any kind. Ordinary punctuation, ellipses included, is not markup.
-2. No rhetorical questions. A question is allowed only when {{ "the other host answers it" if two_hosts else "the host genuinely answers it next" }}.
-   Never ask one for effect, and never answer your own question in the same breath.
-3. Vary your intensifiers and agreement words. Reaching for the same one ("absolutely",
-   "exactly", "definitely", "really", "totally") turn after turn is the single most artificial
-   habit in generated dialogue — vary the wording or drop the intensifier entirely.
-4. Every word must earn its place. No repetition tricks to reach the word count.
-5. Write numbers as words, not digits, so they are spoken correctly.
-6. Spelling a figure out changes how it is written, never what it says. Every date, amount,
-   percentage, company name and statistic must carry the exact value the source gives it.
-   Never supply a year, amount or figure the source does not state — if the source gives an
-   amount with no year attached, give the amount with no year. When you are unsure of a
-   detail, say less rather than guessing: an omitted fact costs far less than a wrong one.
-7. Write foreign names, products, and acronyms the way they should be pronounced in
-   {{ language }}, not in their original script.
-8. Finish every sentence. Never stop mid-sentence or mid-word.
-9. No meta-commentary about summarizing, about the source, or about the script itself.
-
-# OUTPUT
-
-Return the dialogue in order, one entry per spoken line.
-
-- `speaker` is exactly {% if two_hosts %}`{{ man_speaker }}` or `{{ woman_speaker }}`{% else %}`{{ speaker }}`{% endif %} — nothing else, no titles, no punctuation.
-- `line` is what that host says out loud: a single continuous line of speech, with no line
-  breaks inside it.
+{% include "_podcast_shared_rules.j2" %}

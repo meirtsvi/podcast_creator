@@ -11,6 +11,13 @@ from google.genai import types
 from podcast_creator.logger import logger
 from podcast_creator.config import Configuration
 
+from podcast_creator.gen_podcast_text_sectioned import (
+    SECTIONED_MODE_THRESHOLD_WORDS,
+    OutlineGenerationError,
+    flatten_script_lines,
+    generate_podcast_text_sectioned,
+    parse_script_json,
+)
 from podcast_creator.templates import render_template
 
 dotenv.load_dotenv()
@@ -179,6 +186,21 @@ def generate_podcast_text(configuration: Configuration):
     min_n_words = int(target_word_count * 0.85)
     max_n_words = int(target_word_count * 1.15)
 
+    with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
+        f.write('\n'.join(configuration.episode_contents))
+
+    # Above the threshold a single response cannot reach the target (the model stops at
+    # ~4-5k words regardless of instructions), so the episode is generated as an outline
+    # plus one call per section instead.
+    if target_word_count > SECTIONED_MODE_THRESHOLD_WORDS:
+        try:
+            podcast_text = generate_podcast_text_sectioned(
+                configuration, target_word_count, min_n_words, max_n_words)
+            return finalize_podcast_text(podcast_text, configuration, min_n_words, max_n_words)
+        except OutlineGenerationError as e:
+            logger.error(f"Sectioned generation failed ({e}). Falling back to single-shot "
+                         f"generation, which will likely land short of the target.")
+
     # Calculate the required output-token budget. Measured on real Hebrew episodes, the
     # script itself costs 2.8-3.4 tokens per word including the JSON scaffolding; the
     # thinking headroom is added on top because both share the same budget.
@@ -209,8 +231,6 @@ def generate_podcast_text(configuration: Configuration):
 
     with open(configuration.episode_folder / "podcast_input.txt", "w", encoding="utf-8") as f:
         f.write(prompt)
-    with open(configuration.episode_folder / "podcast_content.txt", "w", encoding="utf-8") as f:
-        f.write('\n'.join(configuration.episode_contents))
 
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
@@ -236,6 +256,9 @@ def generate_podcast_text(configuration: Configuration):
         response_schema=PODCAST_SCRIPT_SCHEMA,
         temperature=0.8,  # Higher temperature for more elaboration
         max_output_tokens=estimated_tokens,
+        # Thinking tokens come out of max_output_tokens; capping them at the headroom that
+        # was added on top guarantees the script's own share of the budget stays intact.
+        thinking_config=types.ThinkingConfig(thinking_budget=THINKING_HEADROOM_TOKENS),
     )
 
     logger.info(f"Starting generation with max_output_tokens={estimated_tokens}")
@@ -253,7 +276,11 @@ def generate_podcast_text(configuration: Configuration):
         max_retries=10,
     )
 
-    # Final verification
+    return finalize_podcast_text(podcast_text, configuration, min_n_words, max_n_words)
+
+def finalize_podcast_text(podcast_text: str, configuration: Configuration,
+                          min_n_words: int, max_n_words: int):
+    """Shared tail of both generation paths: verify, save, clean up, translate."""
     final_word_count = len(podcast_text.split())
     is_complete = verify_text_completeness(podcast_text)
 
@@ -290,6 +317,7 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
 
     best_match = ""
     best_distance = float("inf")
+    cap_truncations = 0
     for attempt in range(max_retries):
         num_chunks = 0
         podcast_text = ""
@@ -330,8 +358,14 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         # Check for truncation
         if finish_reason == "MAX_TOKENS" or str(finish_reason) == "FinishReason.MAX_TOKENS":
             if generate_content_config.max_output_tokens >= MAX_OUTPUT_TOKENS_CAP:
+                # Re-rolling the identical request cannot help; the budget is already at the
+                # model cap. Two identical truncations prove it is structural, so stop.
+                cap_truncations += 1
                 logger.error(f"Output truncated at the {MAX_OUTPUT_TOKENS_CAP} token model cap. "
                              f"Raising the limit further has no effect - shorten the episode instead.")
+                if cap_truncations >= 2:
+                    logger.error("Truncated at the model cap twice; aborting retries.")
+                    break
                 continue
             generate_content_config.max_output_tokens = min(
                 int(generate_content_config.max_output_tokens * 1.5), MAX_OUTPUT_TOKENS_CAP)
@@ -340,35 +374,12 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             continue
 
         try:
-            json_text = json.loads(podcast_text)
-        except json.decoder.JSONDecodeError:
-            logger.error(f"Output content is not a JSON: {podcast_text[:100]}...{podcast_text[-100:]}")
-            logger.error(f"Output content is not a JSON: {podcast_text}")
+            script_lines = parse_script_json(podcast_text)
+        except ValueError as e:
+            logger.error(f"Output content is not a valid script: {e}")
+            logger.error(f"Output content is not a valid script: {podcast_text}")
             continue
-        original_podcast_text = podcast_text
-        podcast_text = ""
-        try:
-            if isinstance(json_text, dict):
-                main_list = json_text["script_lines"]
-            elif isinstance(json_text, list):
-                main_list = json_text
-            else:
-                raise TypeError(f"Unexpected JSON root type: {type(json_text).__name__}")
-
-            for item in main_list:
-                # Collapse any internal whitespace so one script line is always exactly one
-                # text line. A newline inside "speaker" or "line" would otherwise produce a
-                # line that does not start with "<speaker>: ", which the TTS step relies on.
-                speaker = " ".join(item["speaker"].split())
-                line = " ".join(item["line"].split())
-                if not line:
-                    logger.warning(f"Skipping empty line for speaker {speaker!r}")
-                    continue
-                podcast_text += speaker + ": " + line + "\n"
-        except Exception as e:
-            logger.error(f"Error parsing JSON content: {e} on item {item if 'item' in locals() else 'N/A'}")
-            logger.error(f"Error parsing JSON content: {original_podcast_text}")
-            continue
+        podcast_text = flatten_script_lines(script_lines)
 
         # Check if generation completed successfully
         word_count = len(podcast_text.split())
@@ -376,24 +387,27 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
 
         logger.info(f"Generated {word_count} words, complete={is_complete}")
 
-        # Check if text ends properly
-        if not is_complete:
-            logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
-            continue
-
         # Score the attempt by how far it falls outside the target range. Overshooting is
         # a miss in exactly the way undershooting is, so the closest attempt wins rather
-        # than the longest one.
+        # than the longest one. An incomplete attempt is kept as a heavily penalized
+        # fallback: a truncated script still beats returning an empty one when nothing
+        # better ever arrives.
         if word_count < min_words:
             distance = min_words - word_count
         elif word_count > max_words:
             distance = word_count - max_words
         else:
             distance = 0
+        score = distance if is_complete else distance + 100000
 
-        if distance < best_distance:
-            best_distance = distance
+        if score < best_distance:
+            best_distance = score
             best_match = podcast_text
+
+        # Check if text ends properly
+        if not is_complete:
+            logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
+            continue
 
         if distance == 0:
             logger.info(f"Successfully generated {word_count} words (target {min_words}-{max_words})")
@@ -404,10 +418,14 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         else:
             logger.warning(f"Word count too high ({word_count} > {max_words}). Retrying...")
 
-    # If we exhausted retries, return the attempt that came closest to the range.
+    # If we exhausted retries, return the attempt that came closest to the range. An empty
+    # best_match means not a single attempt parsed - raising beats returning an empty script
+    # that would flow into TTS and publish a silent episode.
+    if not best_match:
+        raise RuntimeError(f"All {max_retries} generation attempts failed to produce a script")
     best_match_word_count = len(best_match.split())
     logger.warning(f"Exhausted {max_retries} retries. Returning closest attempt with "
-                   f"{best_match_word_count} words ({best_distance} words outside "
+                   f"{best_match_word_count} words ({best_distance % 100000} words outside "
                    f"the {min_words}-{max_words} range)")
     return best_match
 

@@ -1,0 +1,79 @@
+# SOURCE MATERIAL
+
+{{ source_material }}
+
+# THE EPISODE PLAN
+
+A {{ language }} podcast episode about the source material above is being written in
+{{ n_sections }} sections, one at a time. This is the plan for the whole episode:
+
+Episode summary: {{ episode_summary }}
+
+{% for s in outline_sections %}
+{{ loop.index }}. {{ s.title }} — {{ s.topics | join("; ") }}
+{% endfor %}
+
+{% include "_podcast_hosts.j2" %}
+
+# YOUR ASSIGNMENT
+
+Write ONLY section {{ section_index }} of {{ n_sections }}: "{{ section_title }}".
+
+Cover these topics:
+{% for t in topics %}
+- {{ t }}
+{% endfor %}
+
+Include these key points from the source:
+{% for k in key_points %}
+- {{ k }}
+{% endfor %}
+
+Write between {{ min_section_words }} and {{ max_section_words }} words, aiming for
+{{ section_word_target }}. Both bounds are hard: overshooting fails exactly as undershooting
+does. If you are running short, go deeper on this section's own topics — concrete detail,
+background, examples, follow-up between the hosts — never pad with filler and never borrow
+topics from other sections.
+
+# WHAT THIS SECTION IS AND IS NOT
+
+{% if is_first %}
+{% if episode_in_series %}
+**Opening.** This section opens the episode: {{ man_speaker }} announces the podcast name —
+{{ podcast_name }} — and the episode number, {{ episode_number }}. Remind listeners to follow
+the podcast in their app to get new episodes. Introduce the host{{ "s" if two_hosts else "" }}
+by name, then move into this section's topics.
+{% else %}
+**Opening.** This section opens the episode. No series intro: briefly introduce the
+host{{ "s" if two_hosts else "" }} and go straight into this section's topics.
+{% endif %}
+{% else %}
+- Do NOT open the episode. No greetings, no podcast-name announcement, no host introductions,
+  no "welcome back". The episode is already in progress — your first line continues the
+  conversation directly from the lines quoted below.
+{% endif %}
+{% if is_last %}
+**Closing.** After this section's topics are covered, close the episode: a short recap of the
+whole episode's key points, thank the audience, say goodbye. Introduce nothing new in the
+closing — no "one more thing before we go", no new questions, no new topics. After the final
+goodbye line, stop immediately and add nothing further.
+{% else %}
+- Do NOT close the episode. No episode recap, no thanks to the audience, no goodbyes, no
+  "that's all for today", no "before we wrap up", no farewell of any kind — the episode
+  continues after this section. When your topics are covered, end on a line that hands off
+  naturally toward the next section's subject: "{{ next_section_title }}". Do not actually
+  start covering it.
+{% endif %}
+- Do NOT cover topics the plan assigns to other sections — at most a one-sentence handoff.
+
+{% if previous_tail %}
+# THE CONVERSATION SO FAR
+
+These are the final lines of the previous section. Continue the conversation directly from
+them — do not repeat them, do not re-answer them, and do not re-introduce what they already
+covered.
+
+{{ previous_tail }}
+{% endif %}
+
+{% include "_podcast_shared_rules.j2" %}

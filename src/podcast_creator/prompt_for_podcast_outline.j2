@@ -1,0 +1,30 @@
+# SOURCE MATERIAL
+
+{{ source_material }}
+
+# YOUR TASK
+
+You are planning a {{ language }} podcast episode of about {{ target_n_words }} words. The
+script will be written section by section by another writer working from your plan. Do not
+write any of the script — produce only the plan.
+
+{% include "_podcast_hosts.j2" %}
+
+# THE PLAN
+
+Divide the episode into exactly {{ n_sections }} sections.
+
+- Every major topic in the source material must be assigned to exactly one section. Nothing
+  in the source may be left out of the plan, and nothing that is not in the source may be
+  added.
+- Give each section a word_target proportional to how much of the source its topics occupy.
+  The word_target values must sum to {{ target_n_words }}.
+- key_points must carry the specific facts, names, numbers, dates and positions from the
+  source that the section has to mention — concrete enough that a writer with the source
+  open can write the whole section from your key_points alone. Write topics and key_points
+  in {{ language }}.
+- Section 1 opens the episode and section {{ n_sections }} closes it. Order the sections so
+  the episode tells one coherent story from start to finish, and so every section hands off
+  naturally to the one after it.
+- episode_summary is the narrative arc of the whole episode in two or three sentences, in
+  {{ language }}.

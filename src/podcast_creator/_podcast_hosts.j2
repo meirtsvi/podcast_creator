@@ -1,0 +1,12 @@
+# HOSTS
+
+{% if two_hosts %}
+This episode has two hosts:
+- {{ man_speaker }} ({{ host1 }}) — presents the news.
+- {{ woman_speaker }} ({{ host2 }}) — the subject-matter expert.
+{% else %}
+This episode has one host: {{ speaker }} ({{ host1 }}), a professional on the episode content.
+{% endif %}
+
+The host{{ "s" if two_hosts else "" }} discuss the source material in their own voice. Never
+impersonate a person who appears in the source.
