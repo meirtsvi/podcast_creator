@@ -17,4 +17,3 @@ src/podcast_creator/.vscode/settings.json
 .vscode/settings.json
 .themarker_cookies.txt
 .env.backup*
-experiments/results/
