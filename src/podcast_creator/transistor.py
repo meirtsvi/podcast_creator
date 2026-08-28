@@ -30,8 +30,10 @@ def upload_new_podcast_episode(configuration: Configuration):
     message = (f"New podcast {configuration.output_language} episode #{configuration.episode_number} "
                f"scheduled on Transistor.fm")
     logger.info(message)
+    # The dashboard has no show-scoped "view episode" route - only the edit page, which is where
+    # the Delete button lives. Dropping the /edit suffix lands on a "page doesn't exist" screen.
     episode_link = (f"https://dashboard.transistor.fm/shows/"
-                    f"{configuration.transistor_show_identifier}/episodes/{episode_id}")
+                    f"{configuration.transistor_show_identifier}/episodes/{episode_id}/edit")
     body = (f"Publishing at {scheduled_for} (about {PUBLISH_DELAY_MINUTES} minutes from now).\n\n"
             f"Delete it before then if you don't want it to go out:\n{episode_link}")
     send_email(send_to=os.getenv("MAIL_SEND_TO"), subject=message, body=body)
