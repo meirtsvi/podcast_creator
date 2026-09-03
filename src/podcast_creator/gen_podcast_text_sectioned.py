@@ -15,6 +15,7 @@ and coverage deterministic instead of prompted-and-hoped:
    expansion section spliced in before the closing.
 """
 
+import difflib
 import json
 import math
 import os
@@ -154,6 +155,45 @@ def parse_script_json(raw_text: str) -> list:
         if not isinstance(item, dict) or "speaker" not in item or "line" not in item:
             raise ValueError(f"malformed script line: {item!r}")
     return lines
+
+
+def repair_truncated_duplicate_lines(script_lines: list) -> list:
+    """Drop a line that was cut off mid-sentence and immediately regenerated.
+
+    An unescaped quote inside a JSON string (e.g. the gershayim in מנכ"ל) ends the string
+    early under schema-constrained decoding; the model recovers by re-emitting the whole
+    line as a new script line. The signature is deterministic - a line that does not end a
+    sentence, followed by a same-speaker line that restarts with the same text - and the
+    regenerated line always supersedes the truncated one, so dropping it is safe.
+    """
+    repaired = []
+    for i, item in enumerate(script_lines):
+        if i + 1 < len(script_lines):
+            nxt = script_lines[i + 1]
+            line = " ".join(item["line"].split())
+            next_line = " ".join(nxt["line"].split())
+            if (item["speaker"] == nxt["speaker"] and line
+                    and not text_is_complete(line)
+                    and _restarts_with(line, next_line)):
+                logger.warning(f"Dropping truncated line superseded by its regeneration: "
+                               f"{line[-80:]!r}")
+                continue
+        repaired.append(item)
+    return repaired
+
+
+def _restarts_with(truncated: str, regenerated: str) -> bool:
+    if regenerated.startswith(truncated):
+        return True
+    head = regenerated[:len(truncated)]
+    return difflib.SequenceMatcher(None, truncated, head).ratio() >= 0.7
+
+
+def find_incomplete_lines(script_lines: list) -> list:
+    """Lines that end mid-sentence. Run after repair_truncated_duplicate_lines: whatever
+    that could not fix deterministically is a defect worth a retry."""
+    return [item["line"] for item in script_lines
+            if item["line"].strip() and not text_is_complete(item["line"])]
 
 
 def text_is_complete(text: str) -> bool:
@@ -330,15 +370,19 @@ def generate_section(client, configuration: Configuration, source_material: str,
         except ValueError as e:
             logger.error(f"Section {section_index} attempt {attempt + 1}: {e}")
             continue
+        lines = repair_truncated_duplicate_lines(lines)
 
         text = flatten_script_lines(lines)
         word_count = count_words(text)
         complete = text_is_complete(text)
+        incomplete_lines = find_incomplete_lines(lines)
         farewells = [] if is_last else find_farewells(text, language)
 
         # Distance from target, with hard penalties for defects worth a retry on their own.
         score = abs(word_count - word_target)
         if not complete:
+            score += 100000
+        if incomplete_lines:
             score += 100000
         if farewells:
             score += 100000
@@ -350,6 +394,8 @@ def generate_section(client, configuration: Configuration, source_material: str,
             problems.append(f"too short ({word_count} < {int(word_target * 0.6)})")
         if not complete:
             problems.append("ends mid-sentence")
+        if incomplete_lines:
+            problems.append(f"{len(incomplete_lines)} line(s) end mid-sentence")
         if farewells:
             problems.append(f"farewell in non-final section: {farewells}")
         if not problems:

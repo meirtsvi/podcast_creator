@@ -14,9 +14,11 @@ from podcast_creator.config import Configuration
 from podcast_creator.gen_podcast_text_sectioned import (
     SECTIONED_MODE_THRESHOLD_WORDS,
     OutlineGenerationError,
+    find_incomplete_lines,
     flatten_script_lines,
     generate_podcast_text_sectioned,
     parse_script_json,
+    repair_truncated_duplicate_lines,
 )
 from podcast_creator.templates import render_template
 
@@ -379,13 +381,16 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
             logger.error(f"Output content is not a valid script: {e}")
             logger.error(f"Output content is not a valid script: {podcast_text}")
             continue
+        script_lines = repair_truncated_duplicate_lines(script_lines)
+        incomplete_lines = find_incomplete_lines(script_lines)
         podcast_text = flatten_script_lines(script_lines)
 
         # Check if generation completed successfully
         word_count = len(podcast_text.split())
         is_complete = verify_text_completeness(podcast_text)
 
-        logger.info(f"Generated {word_count} words, complete={is_complete}")
+        logger.info(f"Generated {word_count} words, complete={is_complete}, "
+                    f"incomplete_lines={len(incomplete_lines)}")
 
         # Score the attempt by how far it falls outside the target range. Overshooting is
         # a miss in exactly the way undershooting is, so the closest attempt wins rather
@@ -399,6 +404,11 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         else:
             distance = 0
         score = distance if is_complete else distance + 100000
+        # A line cut mid-sentence that the truncated-duplicate repair could not fix would
+        # reach the audio as a broken sentence, so it costs a retry just like an
+        # incomplete ending does.
+        if incomplete_lines:
+            score += 100000
 
         if score < best_distance:
             best_distance = score
@@ -407,6 +417,10 @@ def generate_podcast_text_with_retry(client, model, contents, generate_content_c
         # Check if text ends properly
         if not is_complete:
             logger.warning(f"Text appears incomplete (doesn't end with proper punctuation). Retrying...")
+            continue
+        if incomplete_lines:
+            logger.warning(f"{len(incomplete_lines)} line(s) end mid-sentence, e.g. "
+                           f"...{incomplete_lines[0][-60:]!r}. Retrying...")
             continue
 
         if distance == 0:
