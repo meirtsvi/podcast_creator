@@ -11,7 +11,8 @@ from google import genai
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
-from podcast_creator.config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME
+from podcast_creator.config import Configuration, EPISODE_TITLE_FILENAME, EPISODE_DESC_FILENAME, EPISODE_URLS_FILENAME, \
+    PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME, PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME
 from podcast_creator.url_to_md import get_markdown_from_url
 from podcast_creator.logger import logger
 from podcast_creator.templates import render_template
@@ -61,12 +62,17 @@ def create_episode_description(configuration: Configuration, urls: [], titles: [
         "direction": configuration.text_direction,
         "episode_content_link": episode_content_link,
     }
+    # The template must match the context keys built here, so it is derived from the URL
+    # count rather than taken from the configuration: callers (personal-podcast) may have
+    # configured single-URL prompts while passing several URLs, and vice versa.
     if len(urls) == 1:
         context.update(title=titles[0], link=urls[0])
+        template = PROMPT_FOR_SINGLE_URL_PODCAST_EPISODE_DESC_FILENAME
     else:
         context.update(titles=', '.join(titles), links=', '.join(urls))
+        template = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME
 
-    prompt = render_template(configuration.template_for_episode_description, **context)
+    prompt = render_template(template, **context)
     desc = call_genai_api(prompt)
     final_desc = desc.replace("```html", "").replace("```", "").replace("\n", "")
     return final_desc
