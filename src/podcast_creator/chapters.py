@@ -310,13 +310,16 @@ def drop_chapters_too_close_together(timings: list) -> list:
     return kept
 
 
-def add_chapters_to_episode(mp3_path, podcast_text: str, configuration: Configuration):
+def add_chapters_to_episode(mp3_path, podcast_text: str, configuration: Configuration,
+                            intro_ms: int = INTRO_LEAD_MS, outro_ms: int = OUTRO_TAIL_MS):
     """Generate chapters for a finished episode and write them into the MP3.
 
     One chapter per source article where the episode has several; episodes built from a single
     article fall back to splitting the script by topic instead.
 
-    Must run AFTER add_pre_and_post_audio(), because the intro music shifts every timestamp.
+    `intro_ms` / `outro_ms` are the lengths of the music before and after the speech, so this
+    must run AFTER add_pre_and_post_audio() when using the defaults. Callers whose episodes have
+    no intro/outro (personal-podcast) pass 0 for both.
     Returns the (title, start_ms, end_ms, url) tuples so the caller can put the same list in
     the episode description. Chapters are cosmetic, so any failure is logged and swallowed
     rather than failing the episode.
@@ -329,12 +332,12 @@ def add_chapters_to_episode(mp3_path, podcast_text: str, configuration: Configur
             return []
 
         total_ms = get_audio_duration_ms(mp3_path)
-        speech_duration_ms = total_ms - INTRO_LEAD_MS - OUTRO_TAIL_MS
+        speech_duration_ms = total_ms - intro_ms - outro_ms
         if speech_duration_ms <= 0:
             logger.error(f"Audio at {mp3_path} is too short ({total_ms}ms) to hold chapters")
             return []
 
-        timings = build_chapter_timings(podcast_text, chapters, speech_duration_ms, INTRO_LEAD_MS)
+        timings = build_chapter_timings(podcast_text, chapters, speech_duration_ms, intro_ms)
         timings = drop_chapters_too_close_together(timings)
         if len(timings) < 2:
             logger.warning(f"Only {len(timings)} chapter(s) left for {mp3_path}; skipping")

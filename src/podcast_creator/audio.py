@@ -1,4 +1,4 @@
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from podcast_creator.logger import logger
 from pydub import AudioSegment, silence
@@ -93,9 +93,10 @@ def add_comment_to_mp3(mp3_path, comment_text):
     # This will replace any existing COMM frame with the same language and description
     audio.add(comment_frame)
 
-    # 4. Save the changes
-    # If we used the ID3() constructor initially, calling save() works directly
-    audio.save()
+    # 4. Save as ID3v2.3, the version add_chapters_to_mp3 writes, so adding the comment after
+    # the chapters does not silently upgrade the whole tag back to v2.4.
+    audio.update_to_v23()
+    audio.save(mp3_path, v2_version=3)
     logger.info(f"Added comment to {mp3_path}")
 
 def _load_id3(mp3_path):
@@ -199,6 +200,37 @@ def add_chapters_to_mp3(mp3_path, chapters):
     tags.update_to_v23()
     tags.save(mp3_path, v2_version=3)
     logger.info(f"Added {len(frames)} chapters to {mp3_path}")
+
+
+def read_comment_from_mp3(mp3_path) -> str:
+    """Return the text of the first COMM frame, or "" if the file has no comment."""
+    try:
+        for frame in ID3(mp3_path).getall("COMM"):
+            text = "".join(frame.text).strip()
+            if text:
+                return text
+    except Exception as e:
+        logger.warning(f"Could not read comment from {mp3_path}: {e}")
+    return ""
+
+
+def read_chapters_from_mp3(mp3_path) -> list:
+    """Return the CHAP frames as (title, start_ms, end_ms, url) tuples ordered by start time.
+
+    The inverse of add_chapters_to_mp3(): the url comes back percent-decoded, or None when the
+    chapter has no WXXX sub-frame. Returns [] when the file has no tags or no chapters.
+    """
+    try:
+        chapters = []
+        for frame in ID3(mp3_path).getall("CHAP"):
+            title = " ".join("".join(t.text) for t in frame.sub_frames.getall("TIT2")).strip()
+            links = frame.sub_frames.getall("WXXX")
+            url = unquote(links[0].url) if links and links[0].url else None
+            chapters.append((title, int(frame.start_time), int(frame.end_time), url))
+        return sorted(chapters, key=lambda c: c[1])
+    except Exception as e:
+        logger.warning(f"Could not read chapters from {mp3_path}: {e}")
+        return []
 
 
 if __name__ == '__main__':
