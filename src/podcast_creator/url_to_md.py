@@ -386,7 +386,7 @@ def get_markdown_from_url_inner(url):
         return content, SimpleNamespace(status_code=200, url=url, text=content)
 
     if url.startswith("https://arxiv.org/") and not "/pdf/" in url:
-        from common import extract_content_from_arxiv
+        from podcast_creator.common import extract_content_from_arxiv
         content = extract_content_from_arxiv(url)
         return content, SimpleNamespace(status_code=200, url=url, text=content)
 

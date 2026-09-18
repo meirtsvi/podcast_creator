@@ -471,13 +471,24 @@ def main():
     from pathlib import Path as p
     #with open("c:\\temp\\podcast_text_original.txt", "r", encoding="utf-8") as f:
     ep_folder = p(f"/tmp/ep/")
-    with open(r"c:\tmp\15\587\podcast_content.txt", "r", encoding="utf-8") as f:
+    with open(r"c:\tmp\\ep\podcast_content.txt", "r", encoding="utf-8") as f:
         podcast_text = f.read()
     configuration = Configuration("hebrew")
     configuration.episode_contents = podcast_text
     configuration.episode_length = 60
-    configuration.set_episode_details(episode_number="281", episode_title=f"title",
-                                      episode_description="עדכונים על מטהורס")
+    configuration.set_episode_details(episode_number="465", episode_title=f"פרק 465 - עסקת ורוניס, הוונדר של וונדרפול, וגל הפיטורים",
+                                      episode_description="""<div dir="rtl"><h3>ורוניס בדרך לאקזיט, גיוסי ענק ופיטורים בפייפאל ואובר</h3><br><br><a href="https://www.calcalist.co.il/calcalistech/article/syhncxldgx">דיווח: חברת הסייבר הישראלית ורוניס במגעים להימכר ל-Proofpoint האמריקאית | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/bkcxi0hugl">"הדבר האחרון שצריך עכשיו הוא להאט": בליץ גיוסי ענק של מיליארד דולר ביממה | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/h1nxwnbdge">אפוויינד גייסה 300 מיליון דולר לפי שווי של 3.8 מיליארד | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/s1vu79hozg">התייעלות באובר: 10% מכוח האדם יקוצץ לטובת המוניות האוטונומיות | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/hjdh0fbdfg">גיוס ענק של 165 מיליון דולר ל-Lyte: אביגדור וילנץ מונה ליו"ר | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/hykq7krofl">חברת IVIX מפטרת כ-10% מהעובדים ומשיקה חוקר AI פיננסי | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/s1284psdgx">גם ליאור סושרד ואסי כהן השקיעו: סטארט-אפ הסייבר שגייס 27 מיליון דולר | כלכליסט</a><br><a href="https://www.calcalist.co.il/calcalistech/article/byl41dhofe">סטארט־אפ הרחפנים שנולד מהמלחמה ונקרא על שם האח שנפל גייס 41 מיליון דולר | כלכליסט</a><br><a href="https://www.themarker.com/technation/2026-09-02/ty-article/000001a0-61e4-d234-aff2-71fd52bc0000?utm_source=App_Share&utm_medium=iOS_Native">חברת פייפאל מפטרת 20%-25% מהעובדים בישראל - TechNation - TheMarker</a><br><a href="https://www.themarker.com/technation/2026-09-02/ty-article/.highlight/000001a0-61d4-d822-a3b8-73dfec1c0000?utm_source=App_Share&utm_medium=iOS_Native">השווי קפץ ל–5 מיליארד דולר: חברת ה–AI הישראלית וונדרפול גייסה 550 מיליון ד' - TechNation - TheMarker</a><br></div><!--chapters--><br>
+(00:00:00) - ורוניס במגעים להימכר ל-Proofpoint<br>
+(00:04:00) - בליץ גיוסי ענק של מיליארד דולר ביממה<br>
+(00:05:06) - וונדרפול גייסה 550 מיליון דולר<br>
+(00:08:15) - אפוויינד גייסה 300 מיליון דולר<br>
+(00:10:11) - גיוס ענק של 165 מיליון דולר ל-Lyte<br>
+(00:12:24) - סטארט-אפ הסייבר האסקיז גייס 27 מיליון דולר<br>
+(00:14:18) - סטארט-אפ הרחפנים איתן גייס 41 מיליון דולר<br>
+(00:16:54) - התייעלות באובר: קיצוץ 10% מכוח האדם<br>
+(00:18:39) - פייפאל מפטרת עובדים בישראל<br>
+(00:20:17) - IVIX מפטרת עובדים ומשיקה חוקר AI<br>
+""")
     configuration.episode_folder = ep_folder
     configuration.hosts = ['male', 'female']
     configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
@@ -485,40 +496,41 @@ def main():
     podcast_text = generate_podcast_text(configuration)
 
     podcast_text = apply_translations(podcast_text, configuration)
-
-
-    ep_folder = p(f"/tmp/ep/")
-    ep_folder.mkdir(parents=True, exist_ok=True)
-    configuration = Configuration("hebrew")
-    configuration.set_episode_details(episode_number="281", episode_title=f"title",
-                                      episode_description="עדכונים על מטהורס")
-    configuration.episode_folder = ep_folder
-    configuration.hosts = ['male', 'female']
-    configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
-    with open(f"/tmp/original_content.txt", "r", encoding="utf-8") as f:
-        article_text = f.readlines()
-        configuration.episode_contents = article_text
-    configuration.set_prompts(is_single_url=True)
-    podcast_text = generate_podcast_text(configuration)
-    print(f"Podcast text for episode: {podcast_text[:100]}... (length: {len(podcast_text)})")
-
-    for ep_num in range(200, 248):
-        try:
-            ep_folder = p(f"/tmp/ep/{ep_num}/")
-            ep_folder.mkdir(parents=True, exist_ok=True)
-            configuration = Configuration("hebrew")
-            configuration.set_episode_details(episode_number=ep_num, episode_title=f"מטהורס {ep_num}", episode_description="עדכונים על מטהורס")
-            configuration.episode_folder = ep_folder
-            configuration.hosts = ['male', 'female']
-            configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
-            with open(f"/Users/meirt/Dropbox/tech_podcast_hebrew/Episode_{ep_num}/podcast_content.txt", "r", encoding="utf-8") as f:
-                article_text = f.readlines()
-                configuration.episode_contents = article_text
-            configuration.set_prompts(is_single_url=True)
-            podcast_text = generate_podcast_text(configuration)
-            print(f"Podcast text for episode {ep_num}: {podcast_text[:100]}... (length: {len(podcast_text)})")
-        except Exception as e:
-            print(f"Error generating podcast text for episode {ep_num}: {e}")
+    print(podcast_text)
+    #
+    #
+    # ep_folder = p(f"/tmp/ep/")
+    # ep_folder.mkdir(parents=True, exist_ok=True)
+    # configuration = Configuration("hebrew")
+    # configuration.set_episode_details(episode_number="281", episode_title=f"title",
+    #                                   episode_description="עדכונים על מטהורס")
+    # configuration.episode_folder = ep_folder
+    # configuration.hosts = ['male', 'female']
+    # configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
+    # with open(f"/tmp/original_content.txt", "r", encoding="utf-8") as f:
+    #     article_text = f.readlines()
+    #     configuration.episode_contents = article_text
+    # configuration.set_prompts(is_single_url=True)
+    # podcast_text = generate_podcast_text(configuration)
+    # print(f"Podcast text for episode: {podcast_text[:100]}... (length: {len(podcast_text)})")
+    #
+    # for ep_num in range(200, 248):
+    #     try:
+    #         ep_folder = p(f"/tmp/ep/{ep_num}/")
+    #         ep_folder.mkdir(parents=True, exist_ok=True)
+    #         configuration = Configuration("hebrew")
+    #         configuration.set_episode_details(episode_number=ep_num, episode_title=f"מטהורס {ep_num}", episode_description="עדכונים על מטהורס")
+    #         configuration.episode_folder = ep_folder
+    #         configuration.hosts = ['male', 'female']
+    #         configuration.podcast_name = "עִדְכּוּנֵי טֶכְנוֹלוֹגְיָה"
+    #         with open(f"/Users/meirt/Dropbox/tech_podcast_hebrew/Episode_{ep_num}/podcast_content.txt", "r", encoding="utf-8") as f:
+    #             article_text = f.readlines()
+    #             configuration.episode_contents = article_text
+    #         configuration.set_prompts(is_single_url=True)
+    #         podcast_text = generate_podcast_text(configuration)
+    #         print(f"Podcast text for episode {ep_num}: {podcast_text[:100]}... (length: {len(podcast_text)})")
+    #     except Exception as e:
+    #         print(f"Error generating podcast text for episode {ep_num}: {e}")
 
 if __name__ == "__main__":
     main()

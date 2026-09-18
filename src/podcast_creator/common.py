@@ -73,6 +73,7 @@ def create_episode_description(configuration: Configuration, urls: [], titles: [
         template = PROMPT_FOR_MULTI_URLS_PODCAST_EPISODE_DESC_FILENAME
 
     prompt = render_template(template, **context)
+
     desc = call_genai_api(prompt)
     final_desc = desc.replace("```html", "").replace("```", "").replace("\n", "")
     return final_desc
