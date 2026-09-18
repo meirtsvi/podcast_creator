@@ -1,0 +1,74 @@
+# TASK
+Below is a Hebrew podcast script between two hosts. Hebrew second-person singular forms are
+written the same way for a man and for a woman and differ only in the nikud, so before the
+script can be read aloud each one has to be resolved from context: who is actually being
+addressed?
+
+You do not write any Hebrew. For each candidate you return a classification, and the program
+looks up the correct spelling itself.
+
+# HOSTS
+- {{ man_speaker }} is a man. When {{ woman_speaker }} speaks to him, second person is MASCULINE.
+- {{ woman_speaker }} is a woman. When {{ man_speaker }} speaks to her, second person is FEMININE.
+
+# SCRIPT
+{% for line in script_lines %}[{{ line.index }}] {{ line.text }}
+{% endfor %}
+
+# CANDIDATES
+{% for candidate in candidates %}id={{ candidate.id }} line={{ candidate.line_index }} speaker={{ candidate.speaker }} token={{ candidate.token }}
+    {{ candidate.context }}
+{% endfor %}
+
+# HOW TO DECIDE
+For each candidate choose one `referent`:
+
+- `cohost` - the speaker is talking TO the other host, personally: answering their question,
+  thanking them, reacting to what they just said, asking them to explain something.
+- `generic` - impersonal "you": the listener, the user, the developer, the driver, anyone at
+  all. THIS IS THE DEFAULT AND BY FAR THE MOST COMMON CASE IN THIS PODCAST.
+- `third_party` - quoted or hypothetical speech addressed to someone else entirely.
+- `imperative_go` - the token is לך and it means "go", not "to you".
+- `not_second_person` - the token is not a second-person form at all. Several candidates are
+  homographs: לקחת is usually the infinitive "to take", חווית is usually "experience of",
+  נכנסת is usually the present tense "enters", שאלת is often "the question of".
+
+Then choose `gender`:
+
+- `generic` is always MASCULINE.
+- `cohost` follows the listener, not the speaker: a line spoken by {{ man_speaker }} addresses
+  {{ woman_speaker }}, so FEMININE; a line spoken by {{ woman_speaker }} addresses
+  {{ man_speaker }}, so MASCULINE.
+- `third_party` and `imperative_go` follow whoever is being addressed in that sentence.
+- For `not_second_person` the gender is ignored; return masculine.
+
+# HARD RULES
+1. Prefer `generic`. A "you" inside an explanation of a product, a workflow, a price or a news
+   item is generic even when the host happens to be looking at their co-host while saying it.
+2. It is `cohost` ONLY when the sentence is about that host as a person - their question, their
+   opinion, their turn to speak, thanking them, greeting them, saying goodbye to them.
+3. If the same sentence already contains אתה or אתם or שלכם, the addressee is masculine. If it
+   contains את as a pronoun, or אתן, the addressee is feminine. Agreement inside one sentence
+   beats every other consideration.
+4. A host's own name appearing next to the candidate is strong evidence of `cohost`.
+5. Return exactly one entry per id, and no ids that were not given to you.
+6. Never invent candidates and never comment on the script.
+
+# EXAMPLES
+- `{{ man_speaker }}: ...על הפגוש הקדמי של המכונית ⟦שלך⟧. מי בדיוק אמור לראות את זה בזמן שאתה נוהג...`
+  -> `generic`, masculine. The sentence is about car owners in general, and it says אתה itself.
+- `{{ woman_speaker }}: {{ man_speaker }}, אתה צודק, ובדיוק כמו ⟦שאמרת⟧ קודם...`
+  -> `cohost`, masculine. She is answering him by name.
+- `{{ man_speaker }}: {{ woman_speaker }}, ⟦הזכרת⟧ קודם את הנושא הזה, תסבירי לנו...`
+  -> `cohost`, feminine. He is handing the turn to her by name.
+- `{{ man_speaker }}: תודה ⟦לך⟧ {{ woman_speaker }}, נתראה בפרק הבא.`
+  -> `cohost`, feminine.
+- `{{ woman_speaker }}: ...זה מאפשר ⟦לך⟧ להעמיד את שני המסכים אחד ליד השני...`
+  -> `generic`, masculine. It is about whoever buys the stand.
+- `{{ man_speaker }}: ...אפשר ⟦לקחת⟧ את הקוד ולהריץ אותו מקומית...`
+  -> `not_second_person`. This is the infinitive, not "you took".
+- `{{ woman_speaker }}: ...⟦לך⟧ תדע מה יקרה עם זה בשנה הבאה...`
+  -> `imperative_go`, masculine. A fixed expression, not "to you".
+
+# OUTPUT
+Return `decisions`: one object per candidate id, each with `id`, `referent` and `gender`.

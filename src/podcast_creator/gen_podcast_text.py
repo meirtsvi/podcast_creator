@@ -20,6 +20,7 @@ from podcast_creator.gen_podcast_text_sectioned import (
     parse_script_json,
     repair_truncated_duplicate_lines,
 )
+from podcast_creator.hebrew_gender_nikud import apply_gender_nikud
 from podcast_creator.templates import render_template
 
 dotenv.load_dotenv()
@@ -144,7 +145,7 @@ def apply_translations(podcast_text, configuration):
                     pattern = r'(?<!\w)' + re.escape(src) + r'(?!\w)'
                     lines[i] = re.sub(pattern, tgt, lines[i])
         podcast_text = "\n".join(lines)
-        return podcast_text
+    return podcast_text
 
 def cleanup_text(podcast_text: str, configuration: Configuration):
     logger.info(f"Cleaning up text. podcast_text: {podcast_text}")
@@ -305,8 +306,12 @@ def finalize_podcast_text(podcast_text: str, configuration: Configuration,
         f.write(podcast_text)
     podcast_text = cleanup_text(podcast_text, configuration)
     podcast_text = apply_translations(podcast_text, configuration)
-    # if configuration.output_language == "hebrew":
-    #     podcast_text = add_diactritics(podcast_text)
+    if configuration.output_language == "hebrew":
+        # Hebrew second person is ambiguous in writing, so the gender of every "you" is resolved
+        # from context and written into the nikud before the text reaches TTS. Unlike the
+        # whole-script add_diactritics() below, this touches only the handful of ambiguous words,
+        # which keeps the character count - and so the number of TTS chunks - essentially the same.
+        podcast_text = apply_gender_nikud(podcast_text, configuration)
     with open(configuration.episode_folder / "podcast_text.txt", "w", encoding="utf-8") as f:
         f.write(podcast_text)
 
