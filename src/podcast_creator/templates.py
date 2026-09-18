@@ -17,6 +17,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from podcast_creator.logger import logger
 
 TEMPLATE_DIR = p(__file__).parent
+KEEP_IN_ENGLISH_FILE = TEMPLATE_DIR / "keep_in_english.txt"
 
 _env = Environment(
     loader=FileSystemLoader(str(TEMPLATE_DIR)),
@@ -27,9 +28,24 @@ _env = Environment(
 )
 
 
+def load_keep_in_english() -> list[str]:
+    """Terms the script prompts tell the model to leave in English, one per line in
+    `keep_in_english.txt`. Read on every render so edits to the file take effect
+    without restarting the server."""
+    if not KEEP_IN_ENGLISH_FILE.exists():
+        return []
+    terms = []
+    for line in KEEP_IN_ENGLISH_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            terms.append(line)
+    return terms
+
+
 def render_template(template_name: str, **context) -> str:
     """Render `template_name` with `context` and collapse the blank-line runs that
     stripped-out conditional blocks leave behind."""
+    context.setdefault("keep_in_english", load_keep_in_english())
     rendered = _env.get_template(template_name).render(**context)
 
     # The old process_conditional_text() did this after dropping a block; keep the

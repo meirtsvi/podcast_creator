@@ -1,0 +1,22 @@
+# Words and phrases Gemini must keep in English (never translate or transliterate)
+# when writing a podcast script in another language. One term per line.
+# Blank lines and lines starting with # are ignored. Matching is case-insensitive.
+sandbox
+sandboxes
+alignment
+self verification
+spec
+routine
+dashboard
+orchestrate
+workflow
+harness
+ecosystem
+taste
+funnel
+pull request
+upstream
+downstream
+publishing
+frontier
+frontend
