@@ -89,7 +89,12 @@ def html_to_markdown_fallback(raw_html, xpath_expr=None):
     return f"# {title}\n\n{markdown_text.strip()}" if title else markdown_text.strip()
 
 
-_THEMARKER_COOKIE_CACHE = Path(__file__).resolve().parent / ".themarker_cookies.txt"
+BOT_HEADERS = {
+    'user-agent': 'PodcastCreator/1.0 (+https://github.com/meirtsvi/podcast_creator)',
+}
+
+
+_THEMARKER_COOKIE_CACHE =Path(__file__).resolve().parent / ".themarker_cookies.txt"
 
 
 def _themarker_login() -> str:
@@ -440,7 +445,16 @@ def get_markdown_from_url_inner(url):
             logger.info(f"Extraction without headers yielded the best result for {url}.")
             return md_no_headers, response_no_headers
 
-        logger.error(f"Two main extraction methods failed for {url}. Trying Playwright as a fallback.")
+        # Attempt 3: Self-identified bot User-Agent. Some sites (e.g. phys.org)
+        # challenge browser User-Agents but let through bots that follow the
+        # "<bot-name> (+contact-url)" format.
+        logger.info(f"Attempting to fetch and extract from {url} with a bot User-Agent.")
+        md_bot, response_bot = _fetch_and_extract(url, session, headers=BOT_HEADERS)
+        if md_bot:
+            logger.info(f"Extraction with a bot User-Agent succeeded for {url}.")
+            return md_bot, response_bot
+
+        logger.error(f"Three extraction attempts failed for {url}. Trying Playwright as a fallback.")
         md_playwright, response_playwright = playwright_extract_to_markdown(url)
         if md_playwright:
             logger.info(f"Playwright successfully extracted data from {url}.")
@@ -449,6 +463,7 @@ def get_markdown_from_url_inner(url):
         return None, response_playwright
 
 if __name__ == "__main__":
+    md, _ = get_markdown_from_url("https://phys.org/news/2025-08-tiny-ocean-partnership-algae-bacteria.html")
     md, _ = get_markdown_from_url("https://www.themarker.com/markets/2026-05-25/ty-article/.premium/0000019e-5e7b-d9a9-abde-dfff4fbe0000?utm_source=App_Share&utm_medium=iOS_Native")
     md, _ = get_markdown_from_url("https://www.themarker.com/technation/2025-12-11/ty-article/.highlight/0000019b-0cd0-d868-affb-5cf9d2a10000?utm_source=App_Share&utm_medium=iOS_Native")
     prompt = f"""The following text is markdown formatted text of a web page. Do the following:
