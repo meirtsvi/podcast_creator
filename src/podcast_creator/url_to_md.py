@@ -111,7 +111,10 @@ def _themarker_login() -> str:
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
-        context = browser.new_context()
+        # The login API gateway returns 403 for the HeadlessChrome user agent,
+        # so present a regular Chrome one.
+        context = browser.new_context(
+            user_agent=_themarker_request_headers('')['user-agent'])
         page = context.new_page()
         try:
             page.goto("https://login.themarker.com/",
