@@ -228,6 +228,9 @@ def _get_markdown_from_themarker(url):
     the canonical link from its HTML. If the result is still a teaser the
     cached session has expired — log in again and retry once.
     """
+    # With a subscriber cookie the gateway returns 403 for any query string
+    # (e.g. the app's ?utm_source=App_Share), so request the bare URL.
+    url = url.split("?")[0]
     md, response = None, None
     with requests.Session() as session:
         for force_login in (False, True):
